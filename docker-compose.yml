@@ -1,0 +1,28 @@
+# docker-compose.yml
+services:
+  zenith:
+    build: .
+    # Host network & USB access for the LiDAR
+    network_mode: host
+    privileged: true
+    ipc: host
+    tty: true
+    stdin_open: true
+    # ⬇️  Bind-mount your workspaces so you can edit freely
+    volumes:
+      - ./ros2_ws:/ros2_ws:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix 
+    command: >
+      bash -c "
+        source /opt/ros/humble/setup.bash &&
+        cd /ros2_ws &&
+        colcon build&&
+        source install/setup.bash &&
+        ros2 daemon start &&
+        tail -f /dev/null
+      "
+    environment:
+      - ROS_DOMAIN_ID=1
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - DISPLAY
