@@ -97,10 +97,17 @@ RUN apt-get update && apt-get install -y \
     ros-humble-vision-opencv \
     && rm -rf /var/lib/apt/lists/*
 
+    # enable universe
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends software-properties-common \
+ && add-apt-repository universe
 
-# 1) installer libcamera en natif
-RUN apt-get update && \
-    apt-get install -y libcamera-dev python3-libcamera
+# now install libcamera + Python bindings
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      libcamera-dev \
+ && rm -rf /var/lib/apt/lists/*
+
 
 # 2) installer Blinka pour avoir board, busio, etc.
 RUN python3 -m pip install --upgrade adafruit-blinka

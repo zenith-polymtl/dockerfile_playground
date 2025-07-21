@@ -25,7 +25,7 @@ docker compose up
 Start the container in detached mode:
 
 ```bash
-docker compose up
+docker compose up -d
 ```
 
 ### Stop Docker
