@@ -4,7 +4,7 @@ from geometry_msgs.msg import Point
 from rclpy.qos import qos_profile_sensor_data
 from pymavlink import mavutil
 import time
-from helper_func import *
+from zenmav.core import Zenmav
 
 class TargetApproachMavlink(Node):
     def __init__(self):
@@ -19,8 +19,7 @@ class TargetApproachMavlink(Node):
         )
 
         connection = 'udp:127.0.0.1:14550'
-        self.mav = pymav()
-        self.mav.connect(connection)
+        self.mav = Zenmav(connection)
 
         self.get_logger().info("Approach node initialised, mavlink connection successful")
 

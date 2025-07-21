@@ -100,7 +100,9 @@ RUN apt-get update && apt-get install -y \
 
 RUN python3 -m pip install -U \
     board \
-    busio 
+    busio \
+    libcamera \
+    adafruit_pca9685 
 
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
