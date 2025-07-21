@@ -41,4 +41,4 @@ docker compose down
 Open an interactive bash session inside the running container:
 
 ```bash
-docker exec -it dockerfile_automous_approach-zenith-1 bash
+docker exec -it dockerfile_playground-zenith-1 bash

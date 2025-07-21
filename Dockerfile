@@ -97,6 +97,11 @@ RUN apt-get update && apt-get install -y \
     ros-humble-vision-opencv \
     && rm -rf /var/lib/apt/lists/*
 
+
+RUN python3 -m pip install -U \
+    board \
+    busio 
+
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
 
