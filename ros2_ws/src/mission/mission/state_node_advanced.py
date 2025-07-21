@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
-import mission.helper_func as hf
+import zenmav.core as Zenmav
 import itertools
 import numpy as np
 
@@ -144,8 +144,7 @@ class StateNode(Node):
         )
 
         # MAVLink Connection
-        self.mav = hf.pymav()
-        self.mav.connect("udp:127.0.0.1:14551")
+        self.mav = Zenmav("udp:127.0.0.1:14551")
 
         # Start a short, frequent timer for mission logic
         self.main_timer = self.create_timer(0.5, self.mission_step)

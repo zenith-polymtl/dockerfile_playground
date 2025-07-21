@@ -98,11 +98,16 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 
-RUN python3 -m pip install -U \
-    board \
-    busio \
-    libcamera \
-    adafruit_pca9685 
+# 1) installer libcamera en natif
+RUN apt-get update && \
+    apt-get install -y libcamera-dev python3-libcamera
+
+# 2) installer Blinka pour avoir board, busio, etc.
+RUN python3 -m pip install --upgrade adafruit-blinka
+
+# 3) installer la bibliothèque PCA9685 sous son nom pip correct
+RUN python3 -m pip install --upgrade adafruit-circuitpython-pca9685
+
 
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
