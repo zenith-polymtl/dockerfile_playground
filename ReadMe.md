@@ -25,7 +25,7 @@ docker compose up
 Start the container in detached mode:
 
 ```bash
-docker compose up -d
+docker compose up -d            # source install/setup.bash  # a mettre aussi
 ```
 
 ### Stop Docker

@@ -78,11 +78,13 @@ RUN apt-get update && apt-get install -y python3-colcon-common-extensions \
 RUN apt-get update && apt-get install -y ros-humble-demo-nodes-cpp\
   python3-gpiozero
 
-RUN pip3 install --no-cache-dir PyQt6
+RUN python3 -m pip cache purge
 
-RUN pip3 install opencv-python
+RUN pip3 install opencv-python --resume-retries 3
 
-RUN python3 -m pip install --no-cache-dir \
+RUN python3 -m pip cache purge
+
+RUN python3 -m pip install --no-cache-dir --resume-retries 10\
         torch==2.3.0+cpu \
         torchvision==0.18.0+cpu \
         --index-url https://download.pytorch.org/whl/cpu \
@@ -115,6 +117,9 @@ RUN python3 -m pip install --upgrade adafruit-blinka
 # 3) installer la bibliothèque PCA9685 sous son nom pip correct
 RUN python3 -m pip install --upgrade adafruit-circuitpython-pca9685
 
+RUN python3 -m pip cache purge
+
+RUN pip3 install --no-cache-dir --resume-retries 3 PyQt6
 
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
