@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drone Control</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <h1>Drone Control Web Interface</h1>
+    
+    <div class="control-section">
+        <h2>Vision Controls</h2>
+        <button onclick="sendCommand('vision_source')">Start Source Search</button>
+        <button onclick="sendCommand('vision_bucket')">Start Bucket Search</button>
+    </div>
+    
+    <div class="control-section">
+        <h2>Approach Mode</h2>
+        <button onclick="sendCommand('manual_approach')">Set to Manual</button>
+        <button onclick="sendCommand('auto_approach')">Set to Auto</button>
+    </div>
+    
+    <div class="control-section">
+        <h2>Winch Controls</h2>
+        <button onclick="sendCommand('winch_down')">Winch Down</button>
+        <button onclick="sendCommand('winch_up')">Winch Up</button>
+        <button onclick="sendCommand('init_motor')">Initialize Motor</button>
+        <button onclick="sendCommand('stop_motor')">Stop Motor</button>
+    </div>
+    
+    <div class="control-section">
+        <h2>Water Controls</h2>
+        <button onclick="sendCommand('water_refill')">Water Refill</button>
+        <button onclick="sendCommand('water_release')">Release Water</button>
+        <div style="margin: 10px 0;">
+            <label>Number of Buckets:</label>
+            <input type="number" id="bucketNumber" min="1" value="1">
+            <button onclick="setBuckets()">Set Buckets</button>
+        </div>
+        <button onclick="sendCommand('valve_open')">Open Valve</button>
+        <button onclick="sendCommand('valve_close')">Close Valve</button>
+    </div>
+    
+    <div class="control-section">
+        <h2>Sensor Feedback</h2>
+        <div class="sensor-display" id="waterQty">Water Qty: 0 mL</div>
+        <div class="sensor-display" id="torque">Torque: 0.00 Nm</div>
+    </div>
+    
+    <div class="control-section">
+        <h2>System Terminal</h2>
+        <div id="terminal"></div>
+    </div>
+    
+    <div class="control-section">
+        <h2>System Controls</h2>
+        <button onclick="sendCommand('battery_changed')">Battery Changed</button>
+        <button class="abort-btn" onclick="confirmAbort()">ABORT STATE</button>
+        <button class="arm-btn" onclick="confirmArming()">Confirm ARMED, GUIDED, AUTHORISE TAKEOFF</button>
+    </div>
+
+    <script src="static/index.js"></script>
+</body>
+</html>
