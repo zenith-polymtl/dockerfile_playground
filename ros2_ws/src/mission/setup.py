@@ -13,7 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         # Include the .msg files for message generation
-        (os.path.join('share', package_name, 'msg'), glob('msg/*.msg'))
+        (os.path.join('share', package_name, 'msg'), glob('msg/*.msg')),
         (os.path.join('share', package_name, 'control_interface'), glob('mission/control_interface/*.*')),
         (os.path.join('share', package_name, 'control_interface', 'static'), glob('mission/control_interface/static/*'))
     ],
