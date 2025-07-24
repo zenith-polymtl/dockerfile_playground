@@ -41,7 +41,6 @@ sudo usermod -aG docker $USER                 # remplacer tout le $USER par ton 
 # 3. Fermer la remote connection de WSL Ubuntu-22.04 avec le bouton en bas à gauche de VSCode pour redémarrer
 
 """
-# source install/setup.bash  # a mettre aussi
 ```
 
 ### Stop Docker
@@ -57,4 +56,7 @@ docker compose down
 Open an interactive bash session inside the running container:
 
 ```bash
+# Faire ça dans chaque autres terminaux que celui ou on a parti le docker!
 docker exec -it dockerfile_playground-zenith-1 bash
+source install/setup.bash  # a mettre ensuite
+# possible de ros2 "run mission $NOM_NODE ensuite" :)
