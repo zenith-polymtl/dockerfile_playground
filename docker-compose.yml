@@ -12,6 +12,7 @@ services:
     volumes:
       - ./ros2_ws:/ros2_ws:rw
       - /tmp/.X11-unix:/tmp/.X11-unix 
+      - ~/.Xauthority:/root/.Xauthority:ro
     command: >
       bash -c "
         source /opt/ros/humble/setup.bash &&
@@ -19,6 +20,7 @@ services:
         colcon build&&
         source install/setup.bash &&
         ros2 daemon start &&
+        ros2 launch mavros apm.launch fcu_url:=tcp://127.0.0.1:5762@5762 &
         tail -f /dev/null
       "
     environment:
@@ -26,3 +28,4 @@ services:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       - DISPLAY
+      - XAUTHORITY=/root/.Xauthority

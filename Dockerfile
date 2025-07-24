@@ -121,6 +121,8 @@ RUN python3 -m pip cache purge
 
 RUN pip3 install --no-cache-dir --resume-retries 3 PyQt6
 
+RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
+
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
 

@@ -23,6 +23,8 @@ class TargetApproachMavlink(Node):
 
         self.get_logger().info("Approach node initialised, mavlink connection successful")
 
+        self.create_timer(0.1, self.target_callback)
+
 
 
     def target_callback(self, msg):
