@@ -59,7 +59,9 @@ Open an interactive bash session inside the running container:
 # Faire ça dans chaque autres terminaux que celui ou on a parti le docker!
 docker exec -it dockerfile_playground-zenith-1 bash
 source install/setup.bash
-ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval \"{message_id: 32, message_rate: 20.0}"
+
+ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_
+id: 32, message_rate: 20.0}"
 
 # possible de ros2 "run mission $NOM_NODE ensuite" :)
 
