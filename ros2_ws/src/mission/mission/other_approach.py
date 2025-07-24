@@ -8,7 +8,7 @@ from zenmav.core import Zenmav
 # Ilyes est trop cool
 
 class PIDController:
-    def __init__(self, kp, ki, kd, max_output=2.0):
+    def __init__(self, kp, ki, kd, max_output=10.0):
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -64,7 +64,6 @@ class ApproachNode(Node):
         #nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
         #pos = nav.get_local_pos()
         #self.get_logger().info(f"pos")
-
         #nav.message_request(message_type=mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, freq_hz=50)
 
     """def go_approach_callback(self, msg):
