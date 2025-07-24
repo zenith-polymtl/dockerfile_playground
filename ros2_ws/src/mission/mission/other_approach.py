@@ -54,7 +54,8 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=0.7, ki=0.00, kd=0.06)
         self.pid_z = PIDController(kp=0.7, ki=0.00, kd=0.06)
 
-        self.curr_pos = None
+        #self.curr_pos = None
+        self.curr_pos = 
         self.approach_active = False  # Control flag
         self.last_time = self.get_clock().now()
 
@@ -80,6 +81,8 @@ class ApproachNode(Node):
         if self.curr_pos: 
             self.approach_active = True
             x, y, z = msg.data.split(",")
+            x, y, z = float(x), float(y), float(z)
+            self.get_logger().error("TEST")
             self.target_pos = target(x, y, z)
             # Pour éviter control, juste recoit un message publié sur le topic qui part other_approach
             self.get_logger().info("Approach PID activated. Holding position.")
