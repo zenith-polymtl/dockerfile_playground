@@ -30,12 +30,14 @@ setup(
         'console_scripts': [
             'state = mission.state_node_min:main',
             'approach = mission.approach:main',
+            'other_approach = mission.other_approach:main',
             'vision = mission.machine_vision:main',
             'valve = mission.valve_control:main',
             'winch = mission.winch_control:main',
             'control = mission.manual_control:main',
             'water = mission.water_measure:main',
             'camera = mission.cam_pub:main',
+            'approachPI3 = mission.approche_pi3:main',
         ],
     },
 )

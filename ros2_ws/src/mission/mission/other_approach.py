@@ -60,7 +60,7 @@ class ApproachNode(Node):
 
         self.timer = self.create_timer(0.05, self.control_loop)  # 20 Hz loop
 
-    def go_approach_callback(self, msg):
+    """def go_approach_callback(self, msg):
         if msg.status == "Intermediate":
             if self.curr_pos: 
                 self.approach_active = True
@@ -74,7 +74,17 @@ class ApproachNode(Node):
                 self.target_pos = target(msg.x, msg.y, msg.z)
                 self.get_logger().info("Approach PID activated. Holding position.")
             else:
-                self.get_logger().warn("No position data received yet!")
+                self.get_logger().warn("No position data received yet!")"""
+
+    def go_approach_callback(self, msg):
+        if self.curr_pos: 
+            self.approach_active = True
+            x, y, z = msg.data.split(",")
+            self.target_pos = target(x, y, z)
+            # Pour éviter control, juste recoit un message publié sur le topic qui part other_approach
+            self.get_logger().info("Approach PID activated. Holding position.")
+        else:
+            self.get_logger().warn("No position data received yet!")
 
     def local_position_callback(self, msg):
         self.curr_pos = msg.pose.position

@@ -60,3 +60,11 @@ Open an interactive bash session inside the running container:
 docker exec -it dockerfile_playground-zenith-1 bash
 source install/setup.bash  # a mettre ensuite
 # possible de ros2 "run mission $NOM_NODE ensuite" :)
+
+
+__"### Permission de fichier, par exemple "__ 
+sudo chown -R avatar:avatar /home/avatar/dockerfile_playground/ros2_ws/install
+
+__"### Publier 1 message sur un topic "__ 
+ros2 topic pub /topic std_msgs/String 'data: Hello World' -1
+# ros2 topic pub /$NOMTOPIC $TYPE_MSG '$MSG' -1
