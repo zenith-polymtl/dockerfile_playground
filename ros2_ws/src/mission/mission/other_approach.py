@@ -5,6 +5,7 @@ from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from zenmav.core import Zenmav
+import numpy as np
 # Ilyes est trop cool
 
 class PIDController:
@@ -112,6 +113,13 @@ class ApproachNode(Node):
         vel_x = self.pid_x.compute(error_x, dt)
         vel_y = self.pid_y.compute(error_y, dt)
         vel_z = self.pid_z.compute(error_z, dt)
+
+        # Failsafe max vitesse
+        if (vel_x**2 + vel_y**2)**(1/2) >= 10:
+            vx = 1*np.sign(vel_x)
+            vy = 1*np.sign(vel_y)
+            vel_x = 7.07106*vx
+            vel_y = 7.07106*vy
 
         twist = TwistStamped()
         twist.twist.linear.x = vel_x
