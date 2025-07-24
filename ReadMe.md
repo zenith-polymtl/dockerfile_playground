@@ -12,20 +12,36 @@
    This will install any required dependencies on the host.
 
 
- ## 2. Running the Container
+
+
+## 2. Running the Container
 
 ### Launch Docker
 
-Start the container in detached mode:
+Start the container :
 
 ```bash
 docker compose up
 ```
 
-Start the container in detached mode:
+Start the container in detached mode :
 
 ```bash
-docker compose up -d            # source install/setup.bash  # a mettre aussi
+docker compose up -d          # ajouter sudo en préfixe si fails sur commande  
+
+"""
+# S'ajouter au groupe docker sinon pour ne pas mettre sudo devant toutes ses commandes sinon est une solution en trois étapes :
+
+# 1. Créer le groupe docker (si ce n’est pas déjà fait)
+sudo groupadd docker
+
+# 2. Ajouter ton utilisateur au groupe docker
+sudo usermod -aG docker $USER                 # remplacer tout le $USER par ton username
+
+# 3. Fermer la remote connection de WSL Ubuntu-22.04 avec le bouton en bas à gauche de VSCode pour redémarrer
+
+"""
+# source install/setup.bash  # a mettre aussi
 ```
 
 ### Stop Docker
