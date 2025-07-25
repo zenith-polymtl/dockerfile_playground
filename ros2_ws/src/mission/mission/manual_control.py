@@ -23,7 +23,6 @@ class DroneWebControl(Node):
         
         self.web_dir = os.path.join(get_package_share_directory('mission'), 'control_interface')
         self.html_path = os.path.join(self.web_dir, 'index.html')
-
     
         # ROS 2 Publishers
         self.vision_pub = self.create_publisher(String, '/go_vision', 10)
