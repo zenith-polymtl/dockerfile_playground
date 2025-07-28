@@ -139,6 +139,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install pywebview for GUI browser apps
 RUN python3 -m pip install --no-cache-dir pywebview
 
+# Install FastAPI and Uvicorn
+RUN python3 -m pip install fastapi uvicorn[standard]
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-gi \
     python3-gi-cairo \
