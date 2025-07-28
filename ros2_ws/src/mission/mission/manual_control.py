@@ -51,7 +51,7 @@ class DroneWebControl(Node):
         self.app = FastAPI()
         self.app.mount(
             "/static",
-            StaticFiles(directory=self.web_dir),
+            StaticFiles(directory=os.path.join(self.web_dir, "static")),
             name="static"
         )
         self.setup_web_server()
