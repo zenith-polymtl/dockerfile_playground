@@ -43,6 +43,15 @@ h1 {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
 .control-section h2 {
     font-size: 1.3rem;
     font-weight: 600;
@@ -192,19 +201,4 @@ label {
         flex-direction: column;
         align-items: center;
     }
-}
-
-.status-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #4CAF50;
-    margin-left: auto;
-    box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
 }
