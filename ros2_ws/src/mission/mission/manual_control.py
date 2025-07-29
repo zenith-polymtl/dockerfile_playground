@@ -153,6 +153,15 @@ class DroneWebControl(Node):
         async def serve_interface():
             with open(self.html_path, 'r', encoding='utf-8') as file:
                 html_content = file.read()
+            
+            # Add cache-busting to CSS files
+            import time
+            css_version = int(time.time())
+            html_content = html_content.replace(
+                'href="static/css/',
+                f'href="static/css/?v={css_version}"'
+            )
+            
             return HTMLResponse(content=html_content, status_code=200)
 
     async def process_web_command(self, data):
@@ -278,7 +287,6 @@ class DroneWebControl(Node):
                 on_top=True
             )
             
-            # Set the close callback
             window.events.closed += on_closed
             
             webview.start()
