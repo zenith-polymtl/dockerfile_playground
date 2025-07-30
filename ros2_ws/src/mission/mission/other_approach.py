@@ -51,13 +51,14 @@ class ApproachNode(Node):
 
         self.get_logger().info("Approach node initialized")
 
-        # PID Controllers for XYZ velocity control
-        """self.pid_x = PIDController(kp=0.6, ki=0, kd=0.25)
-        self.pid_y = PIDController(kp=0.6, ki=0, kd=0.25)
-        self.pid_z = PIDController(kp=0.73, ki=0, kd=0.25)"""
+        """# PID Controllers for XYZ velocity control by try and retry
         self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
-        self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)
+        self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
+        # PID Controllers for XYZ velocity control by Ziegler-Nichols Method pas fini
+        self.pid_x = PIDController(kp=0.6, ki=0, kd=0)
+        self.pid_y = PIDController(kp=0.6, ki=0, kd=0)
+        self.pid_z = PIDController(kp=0.73, ki=0, kd=0)
 
         self.curr_pos = None
         self.approach_active = False  # Control flag
