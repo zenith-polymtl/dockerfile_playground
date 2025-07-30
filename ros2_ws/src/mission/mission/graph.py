@@ -15,6 +15,7 @@ class GraphNode(Node):
     def __init__(self):
         super().__init__('graph')
         self.manual_got_called = False # Control flag
+        self.last_record_time = 0
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,

@@ -44,7 +44,7 @@ class GoApproachPublisher(Node):
         self.get_logger().info(f'Published: "{msg.data}"')
     
     def manual_callback(self, msg):
-        if msg == "AUTO":
+        if msg.data == "AUTO":
             self.get_logger().info(f'NYESSSSSSSSSSSSSSSSSSSS AUTO')
             self.manual_got_called = True
             self.timer = self.create_timer(self.timer_period, self.timer_callback)
