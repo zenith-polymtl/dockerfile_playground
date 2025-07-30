@@ -73,3 +73,8 @@ __"### Publier 1 message sur un topic "__
 ros2 topic pub /topic std_msgs/String 'data: Hello World' -1
 ros2 topic pub /go_approach std_msgs/String 'data: 99,90,-15 ' -1
 # ros2 topic pub /$NOMTOPIC $TYPE_MSG '$MSG' -1
+
+#mapframe : global baselink : local drone (vitesse)
+# commande local
+#MavROS : east north up
+#ZenMav : north east down
