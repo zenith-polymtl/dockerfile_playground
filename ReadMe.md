@@ -99,3 +99,7 @@ sudo chown -R avatar:avatar /home/avatar/dockerfile_playground/ros2_ws/install
 ### Commandes de Contrôle
 
 Les commandes locales sont envoyées en utilisant le système de coordonnées approprié pour chaque système.
+
+
+# Pour supprimer des fichiers sans avoir les permissions :
+# sudo rm -rf data

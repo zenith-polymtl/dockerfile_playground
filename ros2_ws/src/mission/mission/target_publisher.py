@@ -45,8 +45,11 @@ class GoApproachPublisher(Node):
     
     def manual_callback(self, msg):
         if msg == "AUTO":
+            self.get_logger().info(f'NYESSSSSSSSSSSSSSSSSSSS AUTO')
             self.manual_got_called = True
             self.timer = self.create_timer(self.timer_period, self.timer_callback)
+        else:
+            self.get_logger().info(f'NOOOOOOOOOOOOOOOOOOOO')
         
 def main(args=None):
     rclpy.init(args=args)
