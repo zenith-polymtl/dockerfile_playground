@@ -6,6 +6,7 @@ import pandas as pd
 import time
 import os
 from datetime import datetime
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 # node listener pos et target pour mettre dans csv
 # csv : pos_x pos_y pos_z tar_x tar_y tar_z time
@@ -13,12 +14,15 @@ from datetime import datetime
 class GraphNode(Node):
     def __init__(self):
         super().__init__('graph')
+        self.manual_got_called = False # Control flag
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=10
         )
+
+        self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
 
         self.subscription_pose = self.create_subscription(
             PoseStamped,
@@ -30,7 +34,6 @@ class GraphNode(Node):
             '/go_approach',
             self.target_callback, qos_profile)
 
-        self.start_time = time.time()
         self.current_target = {'x': None, 'y': None, 'z': None}
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.csv_file = f"data/pos_xyz_{timestamp_str}.csv"
@@ -39,6 +42,14 @@ class GraphNode(Node):
         # Initialise le fichier CSV avec les en-têtes
         self.df = pd.DataFrame(columns=['pos_x', 'pos_y', 'pos_z', 'tar_x', 'tar_y', 'tar_z', 'time'])
         self.df.to_csv(self.csv_file, index=False)
+
+    def manual_callback(self, msg):
+        if msg.data == "AUTO":
+            self.get_logger().info(f'New message reçu AUTO!!!')
+            self.manual_got_called = True
+            self.start_time = time.time()
+        else:
+            self.get_logger().info(f'New message reçu pas auto : {msg.data}')
 
     def target_callback(self, msg):
         try:

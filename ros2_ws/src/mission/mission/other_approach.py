@@ -46,7 +46,8 @@ class ApproachNode(Node):
         )
 
         self.publisher_ = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
-        self.subscriber_ = self.create_subscription(String, 'go_approach', self.go_approach_callback, qos_profile)
+        self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
+        self.subscriber_ = self.create_subscription(String, '/go_approach', self.go_approach_callback, qos_profile)
         self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.local_position_callback, qos_profile)
 
         self.get_logger().info("Approach node initialized")
@@ -62,42 +63,48 @@ class ApproachNode(Node):
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0)
 
         self.curr_pos = None
+        self.manual_got_called = False # Control flag
         self.approach_active = False  # Control flag
         self.last_time = self.get_clock().now()
 
         self.timer = self.create_timer(0.05, self.control_loop)  # 20 Hz loop
 
-        #nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
-        #pos = nav.get_local_pos()
-        #self.get_logger().info(f"pos")
-        #nav.message_request(message_type=mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, freq_hz=50)
+        """nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
+        pos = nav.get_local_pos()
+        self.get_logger().info(f"pos")
+        nav.message_request(message_type=mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, freq_hz=50)"""
+
 
     """def go_approach_callback(self, msg):
-        if msg.status == "Intermediate":
+        if manual_got_called == True:
             if self.curr_pos: 
                 self.approach_active = True
                 self.target_pos = target(msg.x, msg.y, msg.z)
                 self.get_logger().info("Approach PID activated. Holding position.")
             else:
                 self.get_logger().warn("No position data received yet!")
-        elif  msg.status == "Final": #Currently same exact logic is used for both status, as an example , change as needed
-            if self.curr_pos: 
-                self.approach_active = True
-                self.target_pos = target(msg.x, msg.y, msg.z)
-                self.get_logger().info("Approach PID activated. Holding position.")
-            else:
-                self.get_logger().warn("No position data received yet!")"""
+            elif  msg.status == "Final": #Currently same exact logic is used for both status, as an example , change as needed
+                if self.curr_pos: 
+                    self.approach_active = True
+                    self.target_pos = target(msg.x, msg.y, msg.z)
+                    self.get_logger().info("Approach PID activated. Holding position.")
+                else:
+                    self.get_logger().warn("No position data received yet!")"""
 
     def go_approach_callback(self, msg):
-        if self.curr_pos: 
-            self.approach_active = True
-            x, y, z = msg.data.split(",")
-            self.get_logger().error("TEST")
-            self.target_pos = target(float(x), float(y), float(z))
-            # Pour éviter control, juste recoit un message publié sur le topic qui part other_approach
-            self.get_logger().info("Approach PID activated. Holding position.")
-        else:
-            self.get_logger().warn("No position data received yet!")
+        if self.manual_got_called == True:
+            if self.curr_pos: 
+                self.approach_active = True
+                x, y, z = msg.data.split(",")
+                self.get_logger().error("TEST")
+                self.target_pos = target(float(x), float(y), float(z))
+                self.get_logger().info("Approach PID activated. Holding position.")
+            else:
+                self.get_logger().warn("No position data received yet!")
+
+    def manual_callback(self, msg):
+        if msg == "AUTO":
+            self.manual_got_called = True
 
     def local_position_callback(self, msg):
         self.curr_pos = msg.pose.position
