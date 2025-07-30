@@ -8,22 +8,32 @@ class GoApproachPublisher(Node):
         # Create a publisher on the /go_approach topic
         self.publisher_ = self.create_publisher(String, '/go_approach', 10)
         # Set timer period (in seconds)
-        timer_period = 60.0  # publish every 1 second
-        self.target_1 = "3,2,18"
-        self.target_2 = "14,12,18"
+        timer_period = 8.0
+        self.target_1 = "0,0,15"
+        self.target_2 = "11,6,18"
+        self.target_3 = "-1,12,16"
+        self.target_4 = "3,5,17"
         self.i = 0
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.get_logger().info(f"Publisher initialized, publishing to '/go_approach' every {timer_period} seconds")
 
     def timer_callback(self):
         msg = String()
-        if self.i%2 == 0:
+        if self.i == 3:
             msg.data = self.target_1
-        else:
+            self.i = 0
+        elif self.i == 2:
             msg.data = self.target_2
+            self.i += 1
+        elif self.i == 1:
+            msg.data = self.target_3
+            self.i += 1
+        elif self.i == 0:
+            msg.data = self.target_4
+            self.i += 1
         self.publisher_.publish(msg)
         self.get_logger().info(f'Published: "{msg.data}"')
-        self.i += 1
+        
 
 
 def main(args=None):

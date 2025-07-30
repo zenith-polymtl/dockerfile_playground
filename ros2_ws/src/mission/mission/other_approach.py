@@ -55,6 +55,7 @@ class ApproachNode(Node):
         self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
+        
         # PID Controllers for XYZ velocity control by Ziegler-Nichols Method pas fini
         self.pid_x = PIDController(kp=0.6, ki=0, kd=0)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0)
