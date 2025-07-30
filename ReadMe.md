@@ -3,8 +3,26 @@
 1. Install docker from docs:
    https://docs.docker.com/engine/install/ubuntu/
 
-2. Clone this repository and navigate into it.
+2. Modifier les permissions pour avoir accès à docker sans sudo:
 
+S'ajouter au groupe docker sinon pour ne pas mettre sudo devant toutes ses commandes sinon est une solution en trois étapes :
+
+a) Créer le groupe docker (si ce n’est pas déjà fait)
+```bash
+sudo groupadd docker
+```
+b) Ajouter ton utilisateur au groupe docker
+```bash
+sudo usermod -aG docker $USER
+```
+c) Fermer la remote connection de WSL Ubuntu-22.04 avec le bouton en bas à gauche de VSCode pour redémarrer.
+
+3. Clone this repository and navigate into it.
+
+```bash
+git clone https://github.com/zenith-polymtl/dockerfile_playground.git dockerfile_playground
+cd dockerfile_playground
+```
 
 ## 2. Running the Container
 
@@ -20,19 +38,6 @@ Start the container in detached mode :
 
 ```bash
 docker compose up -d          # ajouter sudo en préfixe si fails sur commande  
-
-"""
-# S'ajouter au groupe docker sinon pour ne pas mettre sudo devant toutes ses commandes sinon est une solution en trois étapes :
-
-# 1. Créer le groupe docker (si ce n’est pas déjà fait)
-sudo groupadd docker
-
-# 2. Ajouter ton utilisateur au groupe docker
-sudo usermod -aG docker $USER                 # remplacer tout le $USER par ton username
-
-# 3. Fermer la remote connection de WSL Ubuntu-22.04 avec le bouton en bas à gauche de VSCode pour redémarrer
-
-"""
 ```
 
 ### Stop Docker
