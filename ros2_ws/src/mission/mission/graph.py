@@ -46,11 +46,11 @@ class GraphNode(Node):
 
     def manual_callback(self, msg):
         if msg.data == "AUTO":
-            self.get_logger().info(f'New message reçu AUTO!!!')
+            self.get_logger().info(f'message AUTO received for graph')
             self.manual_got_called = True
             self.start_time = time.time()
         else:
-            self.get_logger().info(f'New message reçu pas auto : {msg.data}')
+            self.get_logger().info(f'message AUTO not received for graph : {msg.data}')
 
     def target_callback(self, msg):
         try:
