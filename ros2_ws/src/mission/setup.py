@@ -36,6 +36,7 @@ setup(
             'control = mission.manual_control:main',
             'water = mission.water_measure:main',
             'camera = mission.cam_pub:main',
+            'graph = mission.graph:main',
             'targets = mission.target_publisher:main',
         ],
     },

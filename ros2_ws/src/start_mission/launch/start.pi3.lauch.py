@@ -22,7 +22,14 @@ def generate_launch_description():
             name="control"
         )
 
+    graph_node = Node(
+            package="mission",
+            executable="graph",
+            name="graph"
+        )
+
     ld.add_action(publisher_node_targets)
     ld.add_action(approach_node)
+    ld.add_action(graph_node)
     ld.add_action(manual_control_node)
     return ld

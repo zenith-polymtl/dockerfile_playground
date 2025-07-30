@@ -123,7 +123,7 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=0.6*min(10*error_x,1), ki=0, kd=0.25)
         self.pid_z = PIDController(kp=0.6*abs(np.log(abs(error_z)*np.e*0.0005)), ki=0, kd=0.25)"""
         
-        vel_x, vel_y = Failsafe_max_vel(vel_x,vel_y)
+        vel_x, vel_y = self.Failsafe_max_vel(vel_x,vel_y)
 
         twist = TwistStamped()
         twist.twist.linear.x = vel_x
@@ -133,7 +133,7 @@ class ApproachNode(Node):
         self.publisher_.publish(twist)
         self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")
 
-    def Failsafe_max_vel(vel_x,vel_y):
+    def Failsafe_max_vel(self, vel_x,vel_y):
         if (vel_x**2 + vel_y**2)**(1/2) >= 10:
             if vel_x >= 7.07106:
                 if vel_y >= 7.07106:
