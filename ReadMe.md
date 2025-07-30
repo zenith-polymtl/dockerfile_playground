@@ -1,17 +1,9 @@
 ## 1. Initial Setup
 
-1. Clone this repository and navigate into it.
+1. Install docker from docs:
+   https://docs.docker.com/engine/install/ubuntu/
 
-2. Make the setup script executable and run it:
-
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-
-   This will install any required dependencies on the host.
-
-
+2. Clone this repository and navigate into it.
 
 
 ## 2. Running the Container
