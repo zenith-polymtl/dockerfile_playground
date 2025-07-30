@@ -4,10 +4,12 @@ from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
-
+from zenmav.core import Zenmav
+import numpy as np
 # Ilyes est trop cool
+
 class PIDController:
-    def __init__(self, kp, ki, kd, max_output=2.0):
+    def __init__(self, kp, ki, kd, max_output=10.0):
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -45,20 +47,29 @@ class ApproachNode(Node):
 
         self.publisher_ = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
         self.subscriber_ = self.create_subscription(String, 'go_approach', self.go_approach_callback, qos_profile)
-        self.position_sub = self.create_subscription(PoseStamped, '/ap/pose/filtered', self.local_position_callback, qos_profile)
+        self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.local_position_callback, qos_profile)
 
         self.get_logger().info("Approach node initialized")
 
-        # PID Controllers for XYZ velocity control
-        self.pid_x = PIDController(kp=0.7, ki=0.00, kd=0.06)
-        self.pid_y = PIDController(kp=0.7, ki=0.00, kd=0.06)
-        self.pid_z = PIDController(kp=0.7, ki=0.00, kd=0.06)
+        """# PID Controllers for XYZ velocity control by try and retry
+        self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
+        # PID Controllers for XYZ velocity control by Ziegler-Nichols Method pas fini
+        self.pid_x = PIDController(kp=0.6, ki=0, kd=0)
+        self.pid_y = PIDController(kp=0.6, ki=0, kd=0)
+        self.pid_z = PIDController(kp=0.73, ki=0, kd=0)
 
         self.curr_pos = None
         self.approach_active = False  # Control flag
         self.last_time = self.get_clock().now()
 
         self.timer = self.create_timer(0.05, self.control_loop)  # 20 Hz loop
+
+        #nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
+        #pos = nav.get_local_pos()
+        #self.get_logger().info(f"pos")
+        #nav.message_request(message_type=mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, freq_hz=50)
 
     """def go_approach_callback(self, msg):
         if msg.status == "Intermediate":
@@ -80,7 +91,8 @@ class ApproachNode(Node):
         if self.curr_pos: 
             self.approach_active = True
             x, y, z = msg.data.split(",")
-            self.target_pos = target(x, y, z)
+            self.get_logger().error("TEST")
+            self.target_pos = target(float(x), float(y), float(z))
             # Pour éviter control, juste recoit un message publié sur le topic qui part other_approach
             self.get_logger().info("Approach PID activated. Holding position.")
         else:
@@ -105,6 +117,33 @@ class ApproachNode(Node):
         vel_x = self.pid_x.compute(error_x, dt)
         vel_y = self.pid_y.compute(error_y, dt)
         vel_z = self.pid_z.compute(error_z, dt)
+
+        """self.pid_x = PIDController(kp=0.6*max((np.log(abs(error_x)*np.e*0.0005)),0.2), ki=0, kd=0.25)
+        self.pid_y = PIDController(kp=0.6*min(10*error_x,1), ki=0, kd=0.25)
+        self.pid_z = PIDController(kp=0.6*abs(np.log(abs(error_z)*np.e*0.0005)), ki=0, kd=0.25)"""
+        
+
+        # Failsafe max vitesse
+        if (vel_x**2 + vel_y**2)**(1/2) >= 10:
+            if vel_x >= 7.07106:
+                if vel_y >= 7.07106:
+                    vx = 1*np.sign(vel_x)
+                    vy = 1*np.sign(vel_y) 
+                    vel_x = 7.07106*vx
+                    vel_y = 7.07106*vy
+                else:
+                    vx = 1*np.sign(vel_x)
+                    vel_x = 7.07106*vx
+
+            if vel_y >= 7.07106:
+                if vel_x >= 7.07106:
+                    vx = 1*np.sign(vel_x)
+                    vy = 1*np.sign(vel_y) 
+                    vel_x = 7.07106*vx
+                    vel_y = 7.07106*vy
+                else:
+                    vy = 1*np.sign(vel_y)
+                    vel_y = 7.07106*vy
 
         twist = TwistStamped()
         twist.twist.linear.x = vel_x

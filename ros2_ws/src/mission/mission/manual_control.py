@@ -23,7 +23,6 @@ class DroneWebControl(Node):
         
         self.web_dir = os.path.join(get_package_share_directory('mission'), 'control_interface')
         self.html_path = os.path.join(self.web_dir, 'index.html')
-
     
         # ROS 2 Publishers
         self.vision_pub = self.create_publisher(String, '/go_vision', 10)
@@ -52,7 +51,7 @@ class DroneWebControl(Node):
         self.app = FastAPI()
         self.app.mount(
             "/static",
-            StaticFiles(directory=self.web_dir),
+            StaticFiles(directory=os.path.join(self.web_dir, "static")),
             name="static"
         )
         self.setup_web_server()
@@ -154,6 +153,15 @@ class DroneWebControl(Node):
         async def serve_interface():
             with open(self.html_path, 'r', encoding='utf-8') as file:
                 html_content = file.read()
+            
+            # Add cache-busting to CSS files
+            import time
+            css_version = int(time.time())
+            html_content = html_content.replace(
+                'href="static/css/',
+                f'href="static/css/?v={css_version}"'
+            )
+            
             return HTMLResponse(content=html_content, status_code=200)
 
     async def process_web_command(self, data):
@@ -279,7 +287,6 @@ class DroneWebControl(Node):
                 on_top=True
             )
             
-            # Set the close callback
             window.events.closed += on_closed
             
             webview.start()
