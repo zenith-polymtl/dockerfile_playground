@@ -55,7 +55,7 @@ class ApproachNode(Node):
         self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
-        
+
         # PID Controllers for XYZ velocity control by Ziegler-Nichols Method pas fini
         self.pid_x = PIDController(kp=0.6, ki=0, kd=0)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0)
@@ -123,28 +123,7 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=0.6*min(10*error_x,1), ki=0, kd=0.25)
         self.pid_z = PIDController(kp=0.6*abs(np.log(abs(error_z)*np.e*0.0005)), ki=0, kd=0.25)"""
         
-
-        # Failsafe max vitesse
-        if (vel_x**2 + vel_y**2)**(1/2) >= 10:
-            if vel_x >= 7.07106:
-                if vel_y >= 7.07106:
-                    vx = 1*np.sign(vel_x)
-                    vy = 1*np.sign(vel_y) 
-                    vel_x = 7.07106*vx
-                    vel_y = 7.07106*vy
-                else:
-                    vx = 1*np.sign(vel_x)
-                    vel_x = 7.07106*vx
-
-            if vel_y >= 7.07106:
-                if vel_x >= 7.07106:
-                    vx = 1*np.sign(vel_x)
-                    vy = 1*np.sign(vel_y) 
-                    vel_x = 7.07106*vx
-                    vel_y = 7.07106*vy
-                else:
-                    vy = 1*np.sign(vel_y)
-                    vel_y = 7.07106*vy
+        vel_x, vel_y = Failsafe_max_vel(vel_x,vel_y)
 
         twist = TwistStamped()
         twist.twist.linear.x = vel_x
@@ -153,6 +132,30 @@ class ApproachNode(Node):
 
         self.publisher_.publish(twist)
         self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")
+
+    def Failsafe_max_vel(vel_x,vel_y):
+        if (vel_x**2 + vel_y**2)**(1/2) >= 10:
+            if vel_x >= 7.07106:
+                if vel_y >= 7.07106:
+                    vx = 1*np.sign(vel_x)
+                    vy = 1*np.sign(vel_y) 
+                    vel_x = 7.07105*vx
+                    vel_y = 7.07105*vy
+                else:
+                    vx = 1*np.sign(vel_x)
+                    vel_x = 7.07105*vx
+
+            if vel_y >= 7.07106:
+                if vel_x >= 7.07106:
+                    vx = 1*np.sign(vel_x)
+                    vy = 1*np.sign(vel_y) 
+                    vel_x = 7.07105*vx
+                    vel_y = 7.07105*vy
+                else:
+                    vy = 1*np.sign(vel_y)
+                    vel_y = 7.07105*vy
+        return vel_x, vel_y
+        
 
 def main(args=None):
     rclpy.init(args=args)
