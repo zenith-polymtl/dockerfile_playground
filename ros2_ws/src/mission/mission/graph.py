@@ -8,13 +8,9 @@ import os
 from datetime import datetime
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
-# node listener pos et target pour mettre dans csv
-# csv : pos_x pos_y pos_z tar_x tar_y tar_z time
-
 class GraphNode(Node):
     def __init__(self):
         super().__init__('graph')
-        self.manual_got_called = False # Control flag
         self.last_record_time = 0
 
         qos_profile = QoSProfile(
@@ -47,8 +43,10 @@ class GraphNode(Node):
     def manual_callback(self, msg):
         if msg.data == "AUTO":
             self.get_logger().info(f'message AUTO received for graph')
-            self.manual_got_called = True
             self.start_time = time.time()
+        if msg.data == "MANUAL":
+            self.get_logger().info(f'message MANUAL received to stop graph')
+            self.start_time = None
         else:
             self.get_logger().info(f'message AUTO not received for graph : {msg.data}')
 

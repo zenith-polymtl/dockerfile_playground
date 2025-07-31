@@ -48,6 +48,10 @@ class GoApproachPublisher(Node):
             self.get_logger().info(f'message AUTO received for target')
             self.manual_got_called = True
             self.timer = self.create_timer(self.timer_period, self.timer_callback)
+        if msg.data == "MANUAL":
+            self.get_logger().info(f'message MANUAL received for target')
+            self.manual_got_called = False
+            self.timer.cancel()   # à tester
         else:
             self.get_logger().info(f'message AUTO not received for target: {msg.data}')
         

@@ -62,6 +62,11 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0)
 
+        # PID TEST DE VOL
+        """self.pid_x = PIDController(kp=0, ki=0, kd=0)
+        self.pid_y = PIDController(kp=0, ki=0, kd=0)
+        self.pid_z = PIDController(kp=0, ki=0, kd=0)"""
+
         self.curr_pos = None
         self.manual_got_called = False # Control flag
         self.approach_active = False  # Control flag
@@ -105,6 +110,8 @@ class ApproachNode(Node):
     def manual_callback(self, msg):
         if msg.data == "AUTO":
             self.manual_got_called = True
+        if msg.data == "MANUAL":
+            self.manual_got_called = False
 
     def local_position_callback(self, msg):
         self.curr_pos = msg.pose.position
@@ -126,6 +133,7 @@ class ApproachNode(Node):
         vel_y = self.pid_y.compute(error_y, dt)
         vel_z = self.pid_z.compute(error_z, dt)
 
+        # pas utile
         """self.pid_x = PIDController(kp=0.6*max((np.log(abs(error_x)*np.e*0.0005)),0.2), ki=0, kd=0.25)
         self.pid_y = PIDController(kp=0.6*min(10*error_x,1), ki=0, kd=0.25)
         self.pid_z = PIDController(kp=0.6*abs(np.log(abs(error_z)*np.e*0.0005)), ki=0, kd=0.25)"""
