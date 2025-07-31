@@ -26,9 +26,9 @@ dt_string = datetime.fromtimestamp(timestamp).strftime("%Y%m%d_%H%M%S")
 
 
 # 🕰️ Option de filtrage temporel
-start_time = float(input("⏱️ Entrez le temps de départ (ex: 2.5) : "))
-end_time = float(input("⏱️ Entrez le temps de fin (ex: 7.0) : "))
-#start_time = 2.5
+start_time = float(input("⏱️ Entrez le temps de départ (ex: 10.5) : "))
+end_time = float(input("⏱️ Entrez le temps de fin (ex: 30.0) : "))
+#start_time = 10
 #end_time = 30
 
 # 🧼 Filtrer le DataFrame selon le temps
