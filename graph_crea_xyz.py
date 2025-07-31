@@ -26,10 +26,10 @@ dt_string = datetime.fromtimestamp(timestamp).strftime("%Y%m%d_%H%M%S")
 
 
 # 🕰️ Option de filtrage temporel
-start_time = float(input("⏱️ Entrez le temps de départ (ex: 10.5) : "))
-end_time = float(input("⏱️ Entrez le temps de fin (ex: 30.0) : "))
+start_time = float(input("⏱️ Entrez le temps de départ (ex: 10.0) : "))
+end_time = float(input("⏱️ Entrez le temps de fin (ex: 42.0) : "))
 #start_time = 10
-#end_time = 30
+#end_time = 42
 
 # 🧼 Filtrer le DataFrame selon le temps
 df_filtered = df[(df["time"] >= start_time) & (df["time"] <= end_time)]

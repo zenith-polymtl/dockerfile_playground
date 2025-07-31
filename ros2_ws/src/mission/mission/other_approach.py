@@ -52,8 +52,8 @@ class ApproachNode(Node):
 
         self.get_logger().info("Approach node initialized")
 
-        """# PID Controllers for XYZ velocity control by try and retry
-        self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
+        # PID Controllers for XYZ velocity control by try and retry
+        """self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
 

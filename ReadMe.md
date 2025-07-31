@@ -80,6 +80,13 @@ ros2 run mission $NOM_NODE
 ros2 launch start_mission start.pi3.lauch.py 
 ```
 
+### Changement dans le docker
+
+```bash
+colcon build    
+# rentrer cette commande avant de relancer un node modifié ou un launch file
+```
+
 ### Publication de Messages
 
 ```bash
@@ -100,7 +107,7 @@ sudo chown -R avatar:avatar /home/avatar/dockerfile_playground/ros2_ws/install
 ### Pour supprimer des fichiers sans avoir les permissions : 
 
 ```bash
-sudo rm -rf data       # clear csv dans data par exemple
+sudo rm -rf /home/avatar/dockerfile_playground/ros2_ws/data/*       # clear csv dans data par exemple
 ```
 
 ### Before launching
@@ -132,3 +139,15 @@ python3 graph_crea_xyz.py             # Dans un terminal hors docker, ex : avata
 ### Commandes de Contrôle
 
 Les commandes locales sont envoyées en utilisant le système de coordonnées approprié pour chaque système.
+
+## 6. Suggestion de terminaux
+
+### Liste : 
+
+```bash
+docker compose up   #1.1
+ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}"   #1.2
+ros2 topic echo /mavros/local_position/pose #2.1
+ros2 launch start_mission start.pi3.lauch.py    #2.2
+python3 graph_crea_xyz.py   #3
+```
