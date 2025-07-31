@@ -1,7 +1,10 @@
-FROM osrf/ros:humble-desktop-full
+# syntax=docker/dockerfile:1.6
+ARG ROS_DISTRO=humble
+FROM --platform=$TARGETPLATFORM ros:${ROS_DISTRO}-ros-base
 
-# Set noninteractive to avoid UI prompts
+ARG TARGETPLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Update & install ROS/colcon build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -101,8 +104,8 @@ RUN python3 -m pip install --upgrade \
 RUN python3 -m pip cache purge && \
     pip3 install --no-cache-dir --resume-retries 3 opencv-python && \
     python3 -m pip install --no-cache-dir --resume-retries 10 \
-        torch==2.3.0+cpu \
-        torchvision==0.18.0+cpu \
+        torch==2.3.0 \
+        torchvision==0.18.0 \
         --index-url https://download.pytorch.org/whl/cpu && \
     python3 -m pip install --no-cache-dir "ultralytics>=8" && \
     python3 -m pip cache purge
