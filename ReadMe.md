@@ -110,17 +110,6 @@ sudo chown -R avatar:avatar /home/avatar/dockerfile_playground/ros2_ws/install
 sudo rm -rf /home/avatar/dockerfile_playground/ros2_ws/data/*       # clear csv dans data par exemple
 ```
 
-### Before launching
-
-Avant de lancer tous l'environnement ros2 et docker : 
-    Dans Mission Planner
---> choisir le copteur
---> Simu se lance
---> Mettre en guided à la troisième ligne
---> Attendre que le GPS se set
---> ARM
---> Takeoff avec clique droit
-
 ### Partir le fichier python de graph : 
 
 ```bash
@@ -139,6 +128,17 @@ python3 graph_crea_xyz.py             # Dans un terminal hors docker, ex : avata
 ### Commandes de Contrôle
 
 Les commandes locales sont envoyées en utilisant le système de coordonnées approprié pour chaque système.
+
+### Before launching
+
+Avant de lancer tous l'environnement ros2 et docker : 
+    Dans Mission Planner
+--> choisir le copteur
+--> Simu se lance
+--> Mettre en guided à la troisième ligne
+--> Attendre que le GPS se set
+--> ARM
+--> Takeoff avec clique droit
 
 ## 6. Suggestion de terminaux
 
