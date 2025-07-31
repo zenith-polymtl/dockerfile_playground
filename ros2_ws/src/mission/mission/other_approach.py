@@ -103,7 +103,7 @@ class ApproachNode(Node):
                 self.get_logger().warn("No position data received yet!")
 
     def manual_callback(self, msg):
-        if msg == "AUTO":
+        if msg.data == "AUTO":
             self.manual_got_called = True
 
     def local_position_callback(self, msg):
