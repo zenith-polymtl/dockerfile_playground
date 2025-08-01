@@ -28,13 +28,18 @@ class GoApproachPublisher(Node):
         self.target_2 = "100,100,15"
         self.target_3 = "0,0,15"
         self.target_4 = "100,100,15"
-        self.i = 0
+        self.targets = [self.target_1, self.target_2, self.target_3, self.target_4]
+        self.i = -1
+        self.last_target = ""
     
         self.get_logger().info(f"Publisher initialized, publishing to '/go_approach' every {self.timer_period} seconds")
 
     def timer_callback(self):
         msg = String()
-        if self.i == 3:
+        self.i = (self.i + 1) % len(self.targets)      # liste et index circulaire
+        msg.data = self.targets[self.i]
+
+        """if self.i == 3:        # à effacer si lignes hauts fonctionnent
             msg.data = self.target_1
             self.i = 0
         elif self.i == 2:
@@ -45,10 +50,19 @@ class GoApproachPublisher(Node):
             self.i += 1
         elif self.i == 0:
             msg.data = self.target_4
-            self.i += 1
+            self.i += 1"""
         self.publisher_.publish(msg)
+        self.last_target = msg.data #
+        if not hasattr(self, 'republish_timer'):
+            self.republish_timer = self.create_timer(0.05, self.republish_target)
         self.get_logger().info(f'Published: "{msg.data}"')
-    
+
+    def republish_target(self):
+        if self.last_target:
+            msg = String()
+            msg.data = self.last_target
+            self.publisher_.publish(msg)
+
     def manual_callback(self, msg):
         if msg.data == "AUTO":
             self.get_logger().info(f'message AUTO received for target')
@@ -58,6 +72,8 @@ class GoApproachPublisher(Node):
         if msg.data == "MANUAL":
             self.get_logger().info(f'message MANUAL received to stop target')
             self.manual_got_called = False
+            if not hasattr(self, 'republish_timer'):
+                self.republish_timer.cancel()
             self.timer.cancel()   # à tester
         else:
             self.get_logger().info(f'no good message received for target: {msg.data}')

@@ -11,7 +11,7 @@ import time
 
 
 class PIDController:
-    def __init__(self, kp, ki, kd, max_output=10.0):
+    def __init__(self, kp, ki, kd, max_output=4.0):  # 4m/s max
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -101,10 +101,24 @@ class ApproachNode(Node):
             if self.curr_pos: 
                 self.approach_active = True
                 x, y, z = msg.data.split(",")
+
+                self.der_target_time_recu = time.time()
+                if not hasattr(self, 'timer_target'):
+                    self.timer_target = self.create_timer(0.04, self.Failsafe_target_acquired)
+
                 self.target_pos = target(float(x), float(y), float(z))
                 self.get_logger().info("Approach PID activated. Holding position.")
             else:
                 self.get_logger().warn("No position data received yet!")
+    
+    def Failsafe_target_acquired(self):
+        if hasattr(self, 'der_target_time_recu'):
+            elapsed = time.time() - self.der_target_time_recu
+            if elapsed >= 0.2:
+                self.get_logger().warn("Failsafe triggered: No target received in 0.2s. Switching to BRAKE mode.")
+                self.set_brake_mode()
+                self.timer_target.cancel()  # Arrête le timer une fois le failsafe déclenché
+                del self.timer_target  # Nettoie l’attribut pour permettre une relance plus tard
 
     def manual_callback(self, msg):
         if msg.data == "AUTO":
@@ -148,7 +162,7 @@ class ApproachNode(Node):
             self.get_logger().error(f'Service call failed: {e}')
 
     def control_loop(self):
-        if not self.approach_active or self.curr_pos is None or self.target_pos is None:
+        if not self.approach_active or self.curr_pos is None or self.target_pos is None:   # donne return quand target pas reçue encore en gros
             return
         
         if self.manual_got_called == False:   # en test, pour arrêter direct le drone (ABORT, HOVER FAST)
@@ -211,26 +225,29 @@ class ApproachNode(Node):
             self.last_log_time = current_time
 
     def Failsafe_max_vel(self, vel_x,vel_y):
-        if (vel_x**2 + vel_y**2)**(1/2) >= 10:
-            if vel_x >= 7.07106:
-                if vel_y >= 7.07106:
+        cap = np.sqrt(2)*self.max_output
+        eps = 0.001
+        scap = cap - eps
+        if (vel_x**2 + vel_y**2)**(1/2) >= self.max_output:
+            if vel_x >= cap:
+                if vel_y >= cap:
                     vx = 1*np.sign(vel_x)
                     vy = 1*np.sign(vel_y) 
-                    vel_x = 7.07105*vx
-                    vel_y = 7.07105*vy
+                    vel_x = scap*vx
+                    vel_y = scap*vy
                 else:
                     vx = 1*np.sign(vel_x)
-                    vel_x = 7.07105*vx
+                    vel_x = scap*vx
 
-            if vel_y >= 7.07106:
-                if vel_x >= 7.07106:
+            if vel_y >= cap:
+                if vel_x >= cap:
                     vx = 1*np.sign(vel_x)
                     vy = 1*np.sign(vel_y) 
-                    vel_x = 7.07105*vx
-                    vel_y = 7.07105*vy
+                    vel_x = scap*vx
+                    vel_y = scap*vy
                 else:
                     vy = 1*np.sign(vel_y)
-                    vel_y = 7.07105*vy
+                    vel_y = scap*vy
         return vel_x, vel_y
         
 
