@@ -49,8 +49,9 @@ class ApproachNode(Node):
         )
 
         self.publisher_ = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
-        self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
-        self.subscriber_ = self.create_subscription(String, '/go_approach', self.go_approach_callback, qos_profile)
+        self.subscriber_man = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
+        self.subscriber_go = self.create_subscription(String, '/go_approach', self.go_approach_callback, qos_profile)
+        self.subscriber_abort = self.create_subscription(String, '/abort_state', self.abort_callback, qos_profile)
         self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.local_position_callback, qos_profile)
         self.set_mode_client = self.create_client(SetMode, '/mavros/set_mode')
         while not self.set_mode_client.wait_for_service(timeout_sec=2.0):
@@ -91,10 +92,13 @@ class ApproachNode(Node):
 
         self.timer = self.create_timer(0.05, self.control_loop)  # 20 Hz loop
 
-        """nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
-        pos = nav.get_local_pos()
-        self.get_logger().info(f"pos")
-        nav.message_request(message_type=mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, freq_hz=50)"""
+        self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
+
+    def abort_callback(self, msg):
+        self.nav.set_mode('BRAKE')
+        self.destroy_node()
+        rclpy.shutdown()
+
 
     def go_approach_callback(self, msg):
         if self.manual_got_called == True:
@@ -114,7 +118,7 @@ class ApproachNode(Node):
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):
             elapsed = time.time() - self.der_target_time_recu
-            if elapsed >= 0.2:
+            if elapsed >= 10.4:
                 self.get_logger().warn("Failsafe triggered: No target received in 0.2s. Switching to BRAKE mode.")
                 self.set_brake_mode()
                 self.timer_target.cancel()  # Arrête le timer une fois le failsafe déclenché
@@ -156,6 +160,7 @@ class ApproachNode(Node):
                 if current_time - self.last_log_time >= 1:
                     self.get_logger().info('Mode activated successfully.')
                     self.last_log_time = current_time
+                    self.destroy_timer(self.timer2)
             else:
                 self.get_logger().warn('Failed to activate mode.')
         except Exception as e:
@@ -174,8 +179,7 @@ class ApproachNode(Node):
                 if not hasattr(self, 'timer2') or self.timer2 is None:
                     self.timer2 = self.create_timer(0.05, self.set_brake_mode)
                 
-                """
-                Pistes de solution à considérer
+                """Pistes de solution à considérer
 
 
                 vel_x = float(0)
@@ -192,10 +196,10 @@ class ApproachNode(Node):
                 
             return
 
-        if self.timer2 is not None:
+        """if self.timer2 is not None:
             self.timer2.cancel()
             self.set_guided_mode()
-            self.timer2 = None
+            self.timer2 = None"""
 
         self.flag_arret = True
 
@@ -211,7 +215,8 @@ class ApproachNode(Node):
         vel_y = self.pid_y.compute(error_y, dt)
         vel_z = self.pid_z.compute(error_z, dt)
         
-        vel_x, vel_y = self.Failsafe_max_vel(vel_x,vel_y)
+        max_output = self.pid_x.max_output
+        vel_x, vel_y = self.Failsafe_max_vel(vel_x,vel_y, max_output)
 
         twist = TwistStamped()
         twist.twist.linear.x = vel_x
@@ -224,11 +229,11 @@ class ApproachNode(Node):
             self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")
             self.last_log_time = current_time
 
-    def Failsafe_max_vel(self, vel_x,vel_y):
-        cap = np.sqrt(2)*self.max_output
+    def Failsafe_max_vel(self, vel_x,vel_y, max_output):
+        cap = np.sqrt(2)*max_output
         eps = 0.001
         scap = cap - eps
-        if (vel_x**2 + vel_y**2)**(1/2) >= self.max_output:
+        if (vel_x**2 + vel_y**2)**(1/2) >= max_output:
             if vel_x >= cap:
                 if vel_y >= cap:
                     vx = 1*np.sign(vel_x)

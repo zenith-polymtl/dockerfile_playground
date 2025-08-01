@@ -32,10 +32,10 @@ class DroneWebControl(Node):
         self.water_source_pub = self.create_publisher(String, '/go_bucket_valve', 10)
         self.water_bucket_pub = self.create_publisher(String, '/go_bucket_valve', 10)
         self.valve_pub = self.create_publisher(String, '/valve_state', 10)
-        self.manual_approach = self.create_publisher(String, '/manual', 10)
+        self.approach = self.create_publisher(String, '/approach_target_graph', 10)
         self.finished_manual_approach_pub = self.create_publisher(String, '/task_end', 10)
         self.battery_changed_pub = self.create_publisher(String, '/battery_changed', 10)
-        self.abort_state_pub = self.create_publisher(String, '/abort_state', 10)
+        self.abort_state_pub = self.create_publisher(String, '/abort_brake', 10)
         self.confirm_arming_pub = self.create_publisher(String, '/confirm_arming', 10)
         self.bucket_number_pub = self.create_publisher(Int32, '/bucket_number', 10)
 
@@ -189,11 +189,11 @@ class DroneWebControl(Node):
                 await self.send_terminal_message("Vision bucket command executed")
             elif command == 'manual_approach':
                 msg.data = "MANUAL"
-                self.manual_approach.publish(msg)
+                self.approach.publish(msg)
                 await self.send_terminal_message("Manual approach activated")
             elif command == 'auto_approach':
-                msg.data = "AUTO"
-                self.manual_approach.publish(msg)
+                msg.data = "Go!"
+                self.approach.publish(msg)
                 await self.send_terminal_message("Auto approach activated")
             elif command == 'winch_down':
                 msg.data = "DOWN"

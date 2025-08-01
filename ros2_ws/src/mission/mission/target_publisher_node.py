@@ -19,20 +19,20 @@ class GoApproachPublisher(Node):
         self.publisher_ = self.create_publisher(String, '/go_approach', 10)
 
         # Set timer period at start (in seconds)
-        self.timer_period = 12.0
-        #self.target_1 = "0,0,15"
-        #self.target_2 = "11,6,18"
-        #self.target_3 = "-1,12,16"
-        #self.target_4 = "3,5,17"
+        self.timer_period = 7.0
         self.target_1 = "0,0,15"
-        self.target_2 = "100,100,15"
-        self.target_3 = "0,0,15"
-        self.target_4 = "100,100,15"
+        self.target_2 = "11,6,18"
+        self.target_3 = "-1,12,16"
+        self.target_4 = "3,5,17"
+        #self.target_1 = "0,0,15"
+        #self.target_2 = "100,100,15"
+        #self.target_3 = "0,0,15"
+        #self.target_4 = "100,100,15"
         self.targets = [self.target_1, self.target_2, self.target_3, self.target_4]
         self.i = -1
         self.last_target = ""
     
-        self.get_logger().info(f"Publisher initialized, publishing to '/go_approach' every {self.timer_period} seconds")
+        self.get_logger().info(f"Publisher initialized, will publish to '/go_approach' every {self.timer_period} seconds when approach start")
 
     def timer_callback(self):
         msg = String()
@@ -54,7 +54,7 @@ class GoApproachPublisher(Node):
         self.publisher_.publish(msg)
         self.last_target = msg.data #
         if not hasattr(self, 'republish_timer'):
-            self.republish_timer = self.create_timer(0.05, self.republish_target)
+            self.republish_timer = self.create_timer(0.03, self.republish_target)
         self.get_logger().info(f'Published: "{msg.data}"')
 
     def republish_target(self):
