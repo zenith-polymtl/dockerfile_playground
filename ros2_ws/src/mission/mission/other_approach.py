@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from mavros_msgs.srv import SetMode
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from zenmav.core import Zenmav
 import numpy as np
-# Ilyes est trop cool
+import time
+
 
 class PIDController:
     def __init__(self, kp, ki, kd, max_output=10.0):
@@ -38,6 +40,7 @@ class target():
 class ApproachNode(Node):
     def __init__(self):
         super().__init__("approach_node")
+        self.timer2 = None
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -49,7 +52,11 @@ class ApproachNode(Node):
         self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
         self.subscriber_ = self.create_subscription(String, '/go_approach', self.go_approach_callback, qos_profile)
         self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.local_position_callback, qos_profile)
+        self.set_mode_client = self.create_client(SetMode, '/mavros/set_mode')
+        while not self.set_mode_client.wait_for_service(timeout_sec=2.0):
+            self.get_logger().info('Waiting for /mavros/set_mode service...')
 
+        self.set_guided_mode()
         self.get_logger().info("Approach node initialized")
 
         ###############################################################################################
@@ -77,6 +84,7 @@ class ApproachNode(Node):
         ###############################################################################################
 
         self.curr_pos = None
+        self.last_log_time = 0.0  # Initialisation du dernier temps de log
         self.manual_got_called = False # Control flag
         self.approach_active = False  # Control flag
         self.last_time = self.get_clock().now()
@@ -88,29 +96,11 @@ class ApproachNode(Node):
         self.get_logger().info(f"pos")
         nav.message_request(message_type=mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED, freq_hz=50)"""
 
-
-    """def go_approach_callback(self, msg):
-        if manual_got_called == True:
-            if self.curr_pos: 
-                self.approach_active = True
-                self.target_pos = target(msg.x, msg.y, msg.z)
-                self.get_logger().info("Approach PID activated. Holding position.")
-            else:
-                self.get_logger().warn("No position data received yet!")
-            elif  msg.status == "Final": #Currently same exact logic is used for both status, as an example , change as needed
-                if self.curr_pos: 
-                    self.approach_active = True
-                    self.target_pos = target(msg.x, msg.y, msg.z)
-                    self.get_logger().info("Approach PID activated. Holding position.")
-                else:
-                    self.get_logger().warn("No position data received yet!")"""
-
     def go_approach_callback(self, msg):
         if self.manual_got_called == True:
             if self.curr_pos: 
                 self.approach_active = True
                 x, y, z = msg.data.split(",")
-                self.get_logger().error("TEST")
                 self.target_pos = target(float(x), float(y), float(z))
                 self.get_logger().info("Approach PID activated. Holding position.")
             else:
@@ -118,18 +108,83 @@ class ApproachNode(Node):
 
     def manual_callback(self, msg):
         if msg.data == "AUTO":
+            self.get_logger().info(f'message AUTO received for approach')
             self.manual_got_called = True
         if msg.data == "MANUAL":
+            self.get_logger().info(f'message MANUAL received to stop approach')
             self.manual_got_called = False
 
     def local_position_callback(self, msg):
         self.curr_pos = msg.pose.position
-        self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})")
+        current_time = time.time()
+        if current_time - self.last_log_time >= 2:
+            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})")
+            self.last_log_time = current_time
+
+    def set_brake_mode(self):
+        req = SetMode.Request()
+        req.custom_mode = 'BRAKE'
+        future = self.set_mode_client.call_async(req)
+        future.add_done_callback(self.mode_response_callback)
+
+    def set_guided_mode(self):
+        req = SetMode.Request()
+        req.custom_mode = 'GUIDED'
+        future = self.set_mode_client.call_async(req)
+        future.add_done_callback(self.mode_response_callback)
+
+    def mode_response_callback(self, future):
+        try:
+            response = future.result()
+            if response.mode_sent:
+
+                current_time = time.time()
+                if current_time - self.last_log_time >= 1:
+                    self.get_logger().info('Mode activated successfully.')
+                    self.last_log_time = current_time
+            else:
+                self.get_logger().warn('Failed to activate mode.')
+        except Exception as e:
+            self.get_logger().error(f'Service call failed: {e}')
 
     def control_loop(self):
         if not self.approach_active or self.curr_pos is None or self.target_pos is None:
             return
         
+        if self.manual_got_called == False:   # en test, pour arrêter direct le drone (ABORT, HOVER FAST)
+            if self.flag_arret == True:
+                self.flag_arret = False
+
+                self.get_logger().info("Arrêt de l'approche!")
+
+                if not hasattr(self, 'timer2') or self.timer2 is None:
+                    self.timer2 = self.create_timer(0.05, self.set_brake_mode)
+                
+                """
+                Pistes de solution à considérer
+
+
+                vel_x = float(0)
+                vel_y = float(0)
+                vel_z = float(0)
+
+                twist = TwistStamped()
+                twist.twist.linear.x = vel_x
+                twist.twist.linear.y = vel_y
+                twist.twist.linear.z = vel_z
+
+                self.publisher_.publish(twist)
+                self.get_logger().info(f"PID velocities zeros - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")"""
+                
+            return
+
+        if self.timer2 is not None:
+            self.timer2.cancel()
+            self.set_guided_mode()
+            self.timer2 = None
+
+        self.flag_arret = True
+
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds / 1e9  # Convert nanoseconds to seconds
         self.last_time = now
@@ -150,7 +205,10 @@ class ApproachNode(Node):
         twist.twist.linear.z = vel_z
 
         self.publisher_.publish(twist)
-        self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")
+        current_time = time.time()
+        if current_time - self.last_log_time >= 1.0:
+            self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")
+            self.last_log_time = current_time
 
     def Failsafe_max_vel(self, vel_x,vel_y):
         if (vel_x**2 + vel_y**2)**(1/2) >= 10:

@@ -14,16 +14,22 @@ class GoApproachPublisher(Node):
         )
 
         self.manual_got_called = False # Control flag
-        self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
 
+        self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
         self.publisher_ = self.create_publisher(String, '/go_approach', 10)
-        # Set timer period (in seconds)
-        self.timer_period = 8.0
+
+        # Set timer period at start (in seconds)
+        self.timer_period = 12.0
+        #self.target_1 = "0,0,15"
+        #self.target_2 = "11,6,18"
+        #self.target_3 = "-1,12,16"
+        #self.target_4 = "3,5,17"
         self.target_1 = "0,0,15"
-        self.target_2 = "11,6,18"
-        self.target_3 = "-1,12,16"
-        self.target_4 = "3,5,17"
-        self.i = 0    
+        self.target_2 = "100,100,15"
+        self.target_3 = "0,0,15"
+        self.target_4 = "100,100,15"
+        self.i = 0
+    
         self.get_logger().info(f"Publisher initialized, publishing to '/go_approach' every {self.timer_period} seconds")
 
     def timer_callback(self):
@@ -47,13 +53,14 @@ class GoApproachPublisher(Node):
         if msg.data == "AUTO":
             self.get_logger().info(f'message AUTO received for target')
             self.manual_got_called = True
+            self.timer_callback()
             self.timer = self.create_timer(self.timer_period, self.timer_callback)
         if msg.data == "MANUAL":
-            self.get_logger().info(f'message MANUAL received for target')
+            self.get_logger().info(f'message MANUAL received to stop target')
             self.manual_got_called = False
             self.timer.cancel()   # à tester
         else:
-            self.get_logger().info(f'message AUTO not received for target: {msg.data}')
+            self.get_logger().info(f'no good message received for target: {msg.data}')
         
 def main(args=None):
     rclpy.init(args=args)

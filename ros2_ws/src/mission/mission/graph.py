@@ -12,6 +12,7 @@ class GraphNode(Node):
     def __init__(self):
         super().__init__('graph')
         self.last_record_time = 0
+        self.first_time_AUTO = True
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -32,6 +33,7 @@ class GraphNode(Node):
             self.target_callback, qos_profile)
 
         self.current_target = {'x': None, 'y': None, 'z': None}
+        self.last_log_time = -1  # Initialisation du dernier temps de log
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.csv_file = f"data/pos_xyz_{timestamp_str}.csv"
         os.makedirs("data", exist_ok=True)
@@ -43,10 +45,11 @@ class GraphNode(Node):
     def manual_callback(self, msg):
         if msg.data == "AUTO":
             self.get_logger().info(f'message AUTO received for graph')
-            self.start_time = time.time()
+            if self.first_time_AUTO == True:
+                self.start_time = time.time()
         if msg.data == "MANUAL":
             self.get_logger().info(f'message MANUAL received to stop graph')
-            self.start_time = None
+            self.first_time_AUTO = False
         else:
             self.get_logger().info(f'message AUTO not received for graph : {msg.data}')
 
@@ -63,11 +66,15 @@ class GraphNode(Node):
 
     def pose_callback(self, msg):
         # ✅ Vérifie que les coordonnées cibles sont bien définies
-        if None in self.current_target.values():
-            self.get_logger().warn("Cible non encore définie, ligne ignorée")
-            return
-
         current_time = time.time()
+        if None in self.current_target.values():
+            if current_time - self.last_log_time >= 2:
+                self.get_logger().warn("Cible non encore définie, ligne ignorée")
+                self.last_log_time = current_time
+                return
+            else:
+                return
+
         elapsed = current_time - self.last_record_time
 
         if elapsed < 0.2:
