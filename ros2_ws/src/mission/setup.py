@@ -32,7 +32,6 @@ setup(
             'approach = mission.approach_node:main',
             'vision = mission.machine_vision:main',
             'valve = mission.valve_control:main',
-            'winch = mission.winch_control:main',
             'control = mission.web_manual_control_node:main',
             'water = mission.water_measure:main',
             'camera = mission.cam_pub:main',
