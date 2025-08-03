@@ -41,17 +41,23 @@ class ApproachNode(Node):
         super().__init__("approach_node")
 
         qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=8
+        )
+
+        qos_profile_BE = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             history=QoSHistoryPolicy.KEEP_LAST,
-            depth=10
+            depth=8
         )
 
         self.publisher_vel = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
-        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
+        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
         self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
         self.subscriber_gt = self.create_subscription(String, '/go_target', self.go_target_callback, qos_profile)
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
-        self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile)
+        self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile_BE)
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
         self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
@@ -68,21 +74,20 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=1, ki=0, kd=0)
         self.pid_z = PIDController(kp=1, ki=0, kd=0)"""
 
-        # PID TEST DE VOL for XYZ pos control                [non modif en test]
+        # PID TEST DE VOL for XYZ pos control                [non modif encore en test]
         """self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
 
         self.curr_pos = None
-        self.last_log_time = 0.0
+        self.last_log_time_pose = 0.0
+        self.last_log_time_control = 0.0
         self.atg_got_called = False
         self.approach_active = False
         self.last_time = self.get_clock().now()
 
-        self.Hertz_control = 20
+        self.Hertz_control = 30
         self.timer = self.create_timer(1/self.Hertz_control, self.control_loop)
-
-        self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
 
     def go_target_callback(self, msg):
         if self.atg_got_called == True:
@@ -92,18 +97,20 @@ class ApproachNode(Node):
 
                 self.der_target_time_recu = time.time()
                 if not hasattr(self, 'timer_target'):
-                    Hertz = 25
+                    Hertz = 15
                     self.timer_target = self.create_timer(1/Hertz, self.Failsafe_target_acquired)
 
+                temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 self.target_pos = target(float(x), float(y), float(z))
-                self.get_logger().info(f"target received at {self.der_target_time_recu}")
+                self.get_logger().info(f"target {self.target_pos.x, self.target_pos.y, self.target_pos.z} received at {temps}")
+
             else:
                 self.get_logger().warn("Target received, but no position data received yet!")
     
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):
             elapsed = time.time() - self.der_target_time_recu
-            max_time_without_target = 0.2 # secondes
+            max_time_without_target = 0.4 # secondes
             if elapsed >= max_time_without_target:
                 self.get_logger().warn(f"Failsafe triggered: No target received in {max_time_without_target}s. Switching to BRAKE mode.")
                 msg = String()
@@ -118,9 +125,11 @@ class ApproachNode(Node):
     def pose_callback(self, msg):
         self.curr_pos = msg.pose.position
         current_time = time.time()
-        if current_time - last_log_time >= 0.5:
-            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}) at {current_time}")
-            last_log_time = current_time
+        temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))
+
+        if current_time - self.last_log_time_pose >= 1.0:
+            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}) at {temps}")
+            self.last_log_time_pose = current_time
 
     def control_loop(self):
         if not self.approach_active or self.curr_pos is None or self.target_pos is None:
@@ -149,9 +158,9 @@ class ApproachNode(Node):
         self.publisher_vel.publish(twist)
 
         current_time = time.time()
-        if current_time - last_log_time >= 0.5:
-            self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z} at {current_time}")
-            last_log_time = current_time
+        if current_time - self.last_log_time_control >= 0.5:
+            self.get_logger().info(f"PID velocities - X: {vel_x:.4f}, Y: {vel_y:.4f}, Z: {vel_z:.4f} at {current_time}")
+            self.last_log_time_control = current_time
 
     def Failsafe_max_vel(self, vel_x,vel_y, max_output):
         eps = 0.001
@@ -174,7 +183,9 @@ def main(args=None):
     node = ApproachNode()
     rclpy.spin(node)
     node.destroy_node()
-    rclpy.shutdown()
+    if rclpy.ok():
+        rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()

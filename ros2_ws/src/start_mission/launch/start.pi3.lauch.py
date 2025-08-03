@@ -6,31 +6,31 @@ def generate_launch_description():
 
     approach_node = Node(
         package="mission",
-        executable="approach_node",
+        executable="approach",
         name="approach_node"
     )
     
     web_manual_control_node = Node(
             package="mission",
-            executable="web_manual_control_node",
+            executable="control",
             name="web_manual_control_node"
         )
 
     graph_node = Node(
             package="mission",
-            executable="graph_node",
+            executable="graph",
             name="graph_node"
         )
     
     abort_brake_node = Node(
             package="mission",
-            executable="abort_brake_node",
+            executable="abort",
             name="abort_brake_node"
         )
     
     target_publisher_node = Node(
         package="mission",
-        executable="target_publisher_node",
+        executable="targets",
         name="target_publisher_node"
     )
     

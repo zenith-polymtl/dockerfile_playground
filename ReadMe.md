@@ -144,7 +144,7 @@ Avant de lancer tous l'environnement ros2 et docker :
 
 ### Liste : 
 
-Pas oublier de rouler le exec en point 3 dans ch. terminaux avant de rouler les commandes si dessous (sauf le compose)
+Pas oublier de rouler le exec en point 3. dans ch. terminaux avant de rouler les commandes si dessous (sauf le compose)
 
 ```bash
 docker compose up   #1.1

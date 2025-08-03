@@ -9,16 +9,16 @@ class GoApproachPublisher(Node):
         super().__init__('target_publisher')
 
         qos_profile = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            reliability=QoSReliabilityPolicy.RELIABLE,
             history=QoSHistoryPolicy.KEEP_LAST,
-            depth=10
+            depth=8
         )
 
         self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
         self.publisher_target = self.create_publisher(String, '/go_target', qos_profile)
-        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
+        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
 
-        self.timer_period_between_target_switch = 5.0 # sec  # à modifier à la guide des distances entre targets
+        self.timer_period_between_target_switch = 8.0 # sec  # à modifier à la guide des distances entre targets
 
         # TARGETS TEST VOL I
         self.target_1 = "0,0,7" # répétabilité en x
@@ -57,8 +57,10 @@ class GoApproachPublisher(Node):
 
         self.i = 0
         self.last_target = ""
+        self.last_record_time_ct = 0.0
+        self.last_record_time_glt = 0.0
     
-        self.get_logger().info(f"Publisher initialized, will publish to '/go_target' every {self.timer_period} seconds when approach start")
+        self.get_logger().info(f"Publisher initialized, will publish to '/go_target' every {self.timer_period_between_target_switch} seconds when approach start")
 
     def timer_callback(self):
         msg = String()
@@ -76,13 +78,13 @@ class GoApproachPublisher(Node):
             self.last_record_time_ct = current_time
 
         if elapsed_get_logger_target > 0.5:
-            self.get_logger().info(f'Published target at "{self.Hertz}": "{msg.data}"')
+            self.get_logger().info(f'Published target at {self.Hertz} Hz: "{msg.data}"')
             self.last_record_time_glt = current_time
 
     def atg_callback(self, msg):
         if msg.data == "GO!":
             self.get_logger().info(f'message {msg.data} received to start target')
-            self.Hertz = 20
+            self.Hertz = 15
             self.timer = self.create_timer(1/self.Hertz, self.timer_callback)
 
         else:
@@ -102,7 +104,9 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
