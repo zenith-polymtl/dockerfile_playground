@@ -14,19 +14,47 @@ class GoApproachPublisher(Node):
             depth=10
         )
 
-        #self.manual_got_called = False # Control flag
-
         self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
         self.publisher_target = self.create_publisher(String, '/go_target', qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
 
-        self.timer_period_between_target_switch = 8.0   # à modifier à la guide des distances entre targets
-        self.target_1 = "0,0,15"
-        self.target_2 = "11,6,18"
-        self.target_3 = "-1,12,16"
-        self.target_4 = "3,5,17"
+        self.timer_period_between_target_switch = 5.0 # sec  # à modifier à la guide des distances entre targets
 
-        self.targets = [self.target_1, self.target_2, self.target_3, self.target_4]
+        # TARGETS TEST VOL I
+        self.target_1 = "0,0,7" # répétabilité en x
+        self.target_2 = "3.5,0,7"
+        self.target_3 = "0,0,7"
+        self.target_4 = "3.5,0,7"
+        self.target_5 = "0,0,7"
+        self.target_6 = "3.5,0,7"
+
+        self.target_7 = "0,0,7" # y
+        self.target_8 = "0,3.5,7"
+
+        self.target_9 = "0,0,7" # z haut
+        self.target_10 = "0,0,15"
+
+        self.target_11 = "0,0,7" # répétabilité en z
+        self.target_12 = "0,0,12"
+        self.target_13 = "0,0,7"
+        self.target_14 = "0,0,12"
+        self.target_15 = "0,0,7"
+        self.target_16 = "0,0,12"
+
+        self.target_17 = "3.5,0,12" # Z for Zenith
+        self.target_18 = "0,0,7"
+        self.target_19 = "3.5,0,7"
+        self.target_20 = "0,0,7"
+        self.target_21 = "3.5,0,12"
+        self.target_22 = "0,0,12" # Z for Zenith again
+        self.target_23 = "3.5,0,12" 
+        self.target_24 = "0,0,7"
+        self.target_25 = "3.5,0,7"
+
+        self.targets = []
+        for i in range(1, 26):  # De 1 à 25 inclus
+            self.targets.append(getattr(self, f"target_{i}"))
+
         self.i = 0
         self.last_target = ""
     
@@ -47,19 +75,6 @@ class GoApproachPublisher(Node):
             self.i += 1
             self.last_record_time_ct = current_time
 
-        """if self.i == 3:        # à effacer si lignes hauts fonctionnent
-            msg.data = self.target_1
-            self.i = 0
-        elif self.i == 2:
-            msg.data = self.target_2
-            self.i += 1
-        elif self.i == 1:
-            msg.data = self.target_3
-            self.i += 1
-        elif self.i == 0:
-            msg.data = self.target_4
-            self.i += 1"""
-
         if elapsed_get_logger_target > 0.5:
             self.get_logger().info(f'Published target at "{self.Hertz}": "{msg.data}"')
             self.last_record_time_glt = current_time
@@ -67,7 +82,7 @@ class GoApproachPublisher(Node):
     def atg_callback(self, msg):
         if msg.data == "GO!":
             self.get_logger().info(f'message {msg.data} received to start target')
-            self.Hertz = 20 # à changer si voulu
+            self.Hertz = 20
             self.timer = self.create_timer(1/self.Hertz, self.timer_callback)
 
         else:
@@ -77,7 +92,6 @@ class GoApproachPublisher(Node):
         if msg.data == "close":
             self.destroy_node()
             rclpy.shutdown()
-
         
 def main(args=None):
     rclpy.init(args=args)

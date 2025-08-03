@@ -21,7 +21,7 @@ class GraphNode(Node):
 
         self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
         self.subscription_pose = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile)
-        self.subscription_target = self.create_subscription(String, '/go_target', self.target_callback, qos_profile)
+        self.subscription_target = self.create_subscription(String, '/go_target', self.go_target_callback, qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
 
         self.current_target = {'x': None, 'y': None, 'z': None}
@@ -40,14 +40,14 @@ class GraphNode(Node):
         else:
             self.get_logger().info(f'message GO! not received for graph : {msg.data}')
 
-    def target_callback(self, msg):
+    def go_target_callback(self, msg):
         try:
             # Format attendu : "12,34,56"
             parts = msg.data.split(',')
             self.current_target['x'] = float(parts[0])
             self.current_target['y'] = float(parts[1])
             self.current_target['z'] = float(parts[2])
-            self.get_logger().info(f'Nouvelle cible reçue : {self.current_target}')
+            #self.get_logger().info(f'Nouvelle cible reçue : {self.current_target}')
         except Exception as e:
             self.get_logger().error(f'Erreur de parsing du message target: {e}')
 

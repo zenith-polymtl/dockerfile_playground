@@ -4,12 +4,6 @@ from launch_ros.actions import Node
 def generate_launch_description():
     ld = LaunchDescription()
 
-    target_publisher_node = Node(
-        package="mission",
-        executable="target_publisher_node",
-        name="target_publisher_node"
-    )
-
     approach_node = Node(
         package="mission",
         executable="approach_node",
@@ -34,7 +28,12 @@ def generate_launch_description():
             name="abort_brake_node"
         )
     
-
+    target_publisher_node = Node(
+        package="mission",
+        executable="target_publisher_node",
+        name="target_publisher_node"
+    )
+    
     ld.add_action(target_publisher_node)
     ld.add_action(approach_node)
     ld.add_action(graph_node)

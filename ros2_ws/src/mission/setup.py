@@ -31,13 +31,13 @@ setup(
             'state = mission.state_node_min:main',
             'approach = mission.approach_node:main',
             'vision = mission.machine_vision:main',
-            'valve = mission.valve_control:main',
             'control = mission.web_manual_control_node:main',
             'water = mission.water_measure:main',
             'camera = mission.cam_pub:main',
             'graph = mission.graph_node:main',
             'abort = mission.abort_brake_node:main',
             'targets = mission.target_publisher_node:main',
+            'valve = mission.valve_control:main'
         ],
     },
 )

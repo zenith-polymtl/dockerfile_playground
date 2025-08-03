@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from mavros_msgs.srv import SetMode
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -10,8 +9,8 @@ import numpy as np
 import time
 
 
-class PIDController:
-    def __init__(self, kp, ki, kd, max_output=4.0):  # 4m/s max
+class PIDController():
+    def __init__(self, kp, ki, kd, max_output = 3.0):  # 3.0 m/s norm is max output for vel in xy directions vectorially
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -40,7 +39,6 @@ class target():
 class ApproachNode(Node):
     def __init__(self):
         super().__init__("approach_node")
-        self.timer2 = None
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -48,22 +46,14 @@ class ApproachNode(Node):
             depth=10
         )
 
-        self.publisher_ = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
+        self.publisher_vel = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
-        self.subscriber_man = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
-        self.subscriber_go = self.create_subscription(String, '/go_approach', self.go_approach_callback, qos_profile)
-        self.subscriber_abort = self.create_subscription(String, '/abort_brake', self.abort_callback, qos_profile)
-        self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.local_position_callback, qos_profile)
-        self.set_mode_client = self.create_client(SetMode, '/mavros/set_mode')
-        while not self.set_mode_client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().info('Waiting for /mavros/set_mode service...')
+        self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
+        self.subscriber_gt = self.create_subscription(String, '/go_target', self.go_target_callback, qos_profile)
+        self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
+        self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile)
 
-        self.set_guided_mode()
-        self.get_logger().info("Approach node initialized")
-
-        ###############################################################################################
-
-        # PD Controllers for XYZ pos control by try and retry
+        # PD Controllers for XYZ pos control by try and retry sim analysis
         self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)
@@ -78,131 +68,63 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=1, ki=0, kd=0)
         self.pid_z = PIDController(kp=1, ki=0, kd=0)"""
 
-        # PID TEST DE VOL for XYZ pos control                [non set]
-        """self.pid_x = PIDController(kp=0, ki=0, kd=0)
-        self.pid_y = PIDController(kp=0, ki=0, kd=0)
-        self.pid_z = PIDController(kp=0, ki=0, kd=0)"""
-
-        ###############################################################################################
+        # PID TEST DE VOL for XYZ pos control                [non modif en test]
+        """self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
 
         self.curr_pos = None
-        self.last_log_time = 0.0  # Initialisation du dernier temps de log
-        self.manual_got_called = False # Control flag
-        self.approach_active = False  # Control flag
+        self.last_log_time = 0.0
+        self.atg_got_called = False
+        self.approach_active = False
         self.last_time = self.get_clock().now()
 
-        self.timer = self.create_timer(0.05, self.control_loop)  # 20 Hz loop
+        self.Hertz_control = 20
+        self.timer = self.create_timer(1/self.Hertz_control, self.control_loop)
 
         self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
 
-    def abort_callback(self, msg):
-        self.nav.set_mode('BRAKE')
-        self.destroy_node()
-        rclpy.shutdown()
-
-
-    def go_approach_callback(self, msg):
-        if self.manual_got_called == True:
+    def go_target_callback(self, msg):
+        if self.atg_got_called == True:
             if self.curr_pos: 
                 self.approach_active = True
                 x, y, z = msg.data.split(",")
 
                 self.der_target_time_recu = time.time()
                 if not hasattr(self, 'timer_target'):
-                    self.timer_target = self.create_timer(0.04, self.Failsafe_target_acquired)
+                    Hertz = 25
+                    self.timer_target = self.create_timer(1/Hertz, self.Failsafe_target_acquired)
 
                 self.target_pos = target(float(x), float(y), float(z))
-                self.get_logger().info("Approach PID activated. Holding position.")
+                self.get_logger().info(f"target received at {self.der_target_time_recu}")
             else:
-                self.get_logger().warn("No position data received yet!")
+                self.get_logger().warn("Target received, but no position data received yet!")
     
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):
             elapsed = time.time() - self.der_target_time_recu
-            if elapsed >= 10.4:
-                self.get_logger().warn("Failsafe triggered: No target received in 0.2s. Switching to BRAKE mode.")
-                self.set_brake_mode()
-                self.timer_target.cancel()  # Arrête le timer une fois le failsafe déclenché
-                del self.timer_target  # Nettoie l’attribut pour permettre une relance plus tard
+            max_time_without_target = 0.2 # secondes
+            if elapsed >= max_time_without_target:
+                self.get_logger().warn(f"Failsafe triggered: No target received in {max_time_without_target}s. Switching to BRAKE mode.")
+                msg = String()
+                msg.data = "a.b."
+                self.abort_state_pub.publish(msg)
 
-    def manual_callback(self, msg):
-        if msg.data == "AUTO":
-            self.get_logger().info(f'message AUTO received for approach')
-            self.manual_got_called = True
-        if msg.data == "MANUAL":
-            self.get_logger().info(f'message MANUAL received to stop approach')
-            self.manual_got_called = False
+    def atg_callback(self, msg):
+        if msg.data == "GO!":
+            self.get_logger().info(f'message GO! received, approach starting')
+            self.atg_got_called = True
 
-    def local_position_callback(self, msg):
+    def pose_callback(self, msg):
         self.curr_pos = msg.pose.position
         current_time = time.time()
-        if current_time - self.last_log_time >= 2:
-            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})")
-            self.last_log_time = current_time
-
-    def set_brake_mode(self):
-        req = SetMode.Request()
-        req.custom_mode = 'BRAKE'
-        future = self.set_mode_client.call_async(req)
-        future.add_done_callback(self.mode_response_callback)
-
-    def set_guided_mode(self):
-        req = SetMode.Request()
-        req.custom_mode = 'GUIDED'
-        future = self.set_mode_client.call_async(req)
-        future.add_done_callback(self.mode_response_callback)
-
-    def mode_response_callback(self, future):
-        try:
-            response = future.result()
-            if response.mode_sent:
-
-                current_time = time.time()
-                if current_time - self.last_log_time >= 1:
-                    self.get_logger().info('Mode activated successfully.')
-                    self.last_log_time = current_time
-                    self.destroy_timer(self.timer2)
-            else:
-                self.get_logger().warn('Failed to activate mode.')
-        except Exception as e:
-            self.get_logger().error(f'Service call failed: {e}')
+        if current_time - last_log_time >= 0.5:
+            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}) at {current_time}")
+            last_log_time = current_time
 
     def control_loop(self):
-        if not self.approach_active or self.curr_pos is None or self.target_pos is None:   # donne return quand target pas reçue encore en gros
+        if not self.approach_active or self.curr_pos is None or self.target_pos is None:
             return
-        
-        if self.manual_got_called == False:   # en test, pour arrêter direct le drone (ABORT, HOVER FAST)
-            if self.flag_arret == True:
-                self.flag_arret = False
-
-                self.get_logger().info("Arrêt de l'approche!")
-
-                if not hasattr(self, 'timer2') or self.timer2 is None:
-                    self.timer2 = self.create_timer(0.05, self.set_brake_mode)
-                
-                """Pistes de solution à considérer
-
-
-                vel_x = float(0)
-                vel_y = float(0)
-                vel_z = float(0)
-
-                twist = TwistStamped()
-                twist.twist.linear.x = vel_x
-                twist.twist.linear.y = vel_y
-                twist.twist.linear.z = vel_z
-
-                self.publisher_.publish(twist)
-                self.get_logger().info(f"PID velocities zeros - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")"""
-                
-            return
-
-        """if self.timer2 is not None:
-            self.timer2.cancel()
-            self.set_guided_mode()
-            self.timer2 = None"""
-
-        self.flag_arret = True
 
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds / 1e9  # Convert nanoseconds to seconds
@@ -224,38 +146,28 @@ class ApproachNode(Node):
         twist.twist.linear.y = vel_y
         twist.twist.linear.z = vel_z
 
-        self.publisher_.publish(twist)
+        self.publisher_vel.publish(twist)
+
         current_time = time.time()
-        if current_time - self.last_log_time >= 1.0:
-            self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z}")
-            self.last_log_time = current_time
+        if current_time - last_log_time >= 0.5:
+            self.get_logger().info(f"PID velocities - X: {vel_x}, Y: {vel_y}, Z: {vel_z} at {current_time}")
+            last_log_time = current_time
 
     def Failsafe_max_vel(self, vel_x,vel_y, max_output):
-        cap = np.sqrt(2)*max_output
         eps = 0.001
-        scap = cap - eps
-        if (vel_x**2 + vel_y**2)**(1/2) >= max_output:
-            if vel_x >= cap:
-                if vel_y >= cap:
-                    vx = 1*np.sign(vel_x)
-                    vy = 1*np.sign(vel_y) 
-                    vel_x = scap*vx
-                    vel_y = scap*vy
-                else:
-                    vx = 1*np.sign(vel_x)
-                    vel_x = scap*vx
 
-            if vel_y >= cap:
-                if vel_x >= cap:
-                    vx = 1*np.sign(vel_x)
-                    vy = 1*np.sign(vel_y) 
-                    vel_x = scap*vx
-                    vel_y = scap*vy
-                else:
-                    vy = 1*np.sign(vel_y)
-                    vel_y = scap*vy
+        if (vel_x**2 + vel_y**2)**(1/2) >= max_output:
+            hyp = (vel_x**2 + vel_y**2)**(1/2)
+            theta = np.arccos(vel_x/hyp)
+            vel_x = (max_output-eps) * np.cos(theta)
+            vel_y = (max_output-eps) * np.sin(theta) * np.sign(vel_y)
+
         return vel_x, vel_y
-        
+
+    def close_callback(self, msg):
+        if msg.data == "close":
+            self.destroy_node()
+            rclpy.shutdown()   
 
 def main(args=None):
     rclpy.init(args=args)
