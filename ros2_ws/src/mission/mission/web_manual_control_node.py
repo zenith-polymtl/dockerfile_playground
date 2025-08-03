@@ -272,34 +272,19 @@ class DroneWebControl(Node):
             self.get_logger().error(f"Web server error: {e}")
 
     def start_webview(self):
-        try:
-            # Create an event to track window closure
-            self.window_closed = threading.Event()
-            
-            def on_closed():
-                self.get_logger().info("Webview window closed - shutting down node")
-                self.window_closed.set()
-                # Schedule node shutdown on the ROS 2 thread
-                if rclpy.ok():
-                    executor = rclpy.executors.MultiThreadedExecutor()
-                    executor.add_node(self)
-                    executor.create_task(self.shutdown_node_async())
-            
+        try: 
             window = webview.create_window(
                 "Drone Control Interface",
                 "http://localhost:8000",
-                width=1000,
+                width=1600,
                 height=800,
                 resizable=True,
                 on_top=True
             )
             
-            window.events.closed += on_closed
-            
             webview.start()
         except Exception as e:
             self.get_logger().error(f"Webview error: {e}")
-            self.shutdown_node()
 
     async def shutdown_node_async(self):
         """Asynchronous shutdown procedure"""
@@ -322,8 +307,7 @@ def main(args=None):
         executor = MultiThreadedExecutor()
         executor.add_node(node)
         
-        # Spin until the window is closed or interrupt occurs
-        while rclpy.ok() and not hasattr(node, 'window_closed') or not node.window_closed.is_set():
+        while rclpy.ok():
             executor.spin_once(timeout_sec=0.1)
             
     except KeyboardInterrupt:
