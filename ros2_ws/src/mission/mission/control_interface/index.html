@@ -5,10 +5,23 @@
     <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
-       <div class="container">
-        <h1>Drone Control Interface</h1>
+    <div class="main-container">
+        <div class="header">
+            <h1>Drone Control Interface</h1>
+        </div>
         
-        <div class="grid">
+        <div class="sidebar">
+            <h2>System Control</h2>
+            
+            
+            <div class="button-group">
+                <button class="battery-btn" onclick="sendCommand('battery_changed')">Battery Changed</button>
+                <button class="abort-btn" onclick="confirmAbort()">EMERGENCY ABORT</button>
+                <button class="arm-btn" onclick="confirmArming()">ARM & AUTHORIZE TAKEOFF</button>
+            </div>
+        </div>
+
+        <div class="content-area">
             <div class="control-section">
                 <h2>
                     Vision Control
@@ -71,30 +84,13 @@
                     <span>0.00 Nm</span>
                 </div>
             </div>
+        </div>
 
-            <div class="control-section terminal-section">
-                <h2>
-                    System Terminal
-                </h2>
-                <div id="terminal">
-                </div>
-            </div>
-
-            <div class="control-section system-controls">
-                <h2>
-                    System Control
-                </h2>
-                <div style="margin-bottom: 16px;">
-                    <button onclick="sendCommand('battery_changed')">Battery Changed</button>
-                </div>
-                <div class="button-group">
-                    <button class="abort-btn" onclick="confirmAbort()">EMERGENCY ABORT</button>
-                    <button class="arm-btn" onclick="confirmArming()">ARM & AUTHORIZE TAKEOFF</button>
-                </div>
-            </div>
+        <div class="terminal-area">
+            <h2>System Terminal</h2>
+            <div id="terminal"></div>
         </div>
     </div>
-
 
     <script src="static/index.js"></script>
 </body>

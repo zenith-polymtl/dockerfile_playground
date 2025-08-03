@@ -39,12 +39,15 @@ docker compose up
 
 # Mode détaché (en arrière-plan)
 docker compose up -d
+
+# Mode faut rebuilt après modif de dépendances
+docker compose up --build
 ```
 
 ### Arrêter le Conteneur
 
 ```bash
-docker compose down
+docker compose down     # ou crtl+c dans le terminal si rouler docker compose up initialement
 ```
 
 ## 3. Accès au Conteneur
@@ -52,7 +55,7 @@ docker compose down
 Pour ouvrir une session bash interactive dans le conteneur en cours d'exécution :
 
 ```bash
-# Exécuter cette commande dans un terminal différent de celui utilisé pour lancer Docker
+# Exécuter cette commande dans tous les terminaux différents de celui utilisé pour lancer Docker
 docker exec -it dockerfile_playground-zenith-1 bash
 ```
 
@@ -61,13 +64,27 @@ docker exec -it dockerfile_playground-zenith-1 bash
 ### Appel de Service ROS2
 
 ```bash
-ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}"
+ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}" 
+# avant de lancer certains echo par exemple 
 ```
 
 ### Lancement de Nœuds ROS2
 
 ```bash
 ros2 run mission $NOM_NODE
+```
+
+### Lancement de lauchfile ROS2
+
+```bash
+ros2 launch start_mission start.pi3.lauch.py 
+```
+
+### Changement dans le docker
+
+```bash
+colcon build    
+# rentrer cette commande avant de relancer un node modifié ou un launch file
 ```
 
 ### Publication de Messages
@@ -87,6 +104,18 @@ ros2 topic pub /go_approach std_msgs/String 'data: 99,90,-15' -1
 sudo chown -R avatar:avatar /home/avatar/dockerfile_playground/ros2_ws/install
 ```
 
+### Pour supprimer des fichiers sans avoir les permissions : 
+
+```bash
+sudo rm -rf /home/avatar/dockerfile_playground/ros2_ws/data/*       # clear csv dans data par exemple
+```
+
+### Partir le fichier python de graph : 
+
+```bash
+python3 graph_crea_xyz.py             # Dans un terminal hors docker, ex : avatar@PcLaurent:~$
+```
+
 ## 5. Notes Importantes
 
 ### Systèmes de Coordonnées
@@ -100,6 +129,27 @@ sudo chown -R avatar:avatar /home/avatar/dockerfile_playground/ros2_ws/install
 
 Les commandes locales sont envoyées en utilisant le système de coordonnées approprié pour chaque système.
 
+### Before launching
 
-# Pour supprimer des fichiers sans avoir les permissions :
-# sudo rm -rf data
+Avant de lancer tous l'environnement ros2 et docker : 
+    Dans Mission Planner
+--> choisir le copteur
+--> Simu se lance
+--> Mettre en guided à la troisième ligne
+--> Attendre que le GPS se set
+--> ARM
+--> Takeoff avec clique droit
+
+## 6. Suggestion de terminaux
+
+### Liste : 
+
+Pas oublier de rouler le exec en point 3. dans ch. terminaux avant de rouler les commandes si dessous (sauf le compose)
+
+```bash
+docker compose up   #1.1
+ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}"   #1.2
+ros2 topic echo /mavros/local_position/pose #2.1
+ros2 launch start_mission start.pi3.lauch.py    #2.2
+python3 graph_crea_xyz.py   #3
+```

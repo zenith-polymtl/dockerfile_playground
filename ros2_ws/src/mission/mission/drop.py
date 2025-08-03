@@ -8,9 +8,9 @@ import board
 import busio
 from adafruit_pca9685 import PCA9685
 
-class ValveNode(Node):
+class DropNode(Node):
     def __init__(self):
-        super().__init__("bucket_valve_Node")
+        super().__init__("drop_node")
 
         i2c = busio.I2C(board.SCL, board.SDA)
         self.pca = PCA9685(i2c, address=0x40)

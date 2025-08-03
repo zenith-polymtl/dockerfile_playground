@@ -1,0 +1,114 @@
+import rclpy
+import time
+from rclpy.node import Node
+from std_msgs.msg import String
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+
+class GoApproachPublisher(Node):
+    def __init__(self):
+        super().__init__('target_publisher')
+
+        qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=8
+        )
+
+        self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
+        self.publisher_target = self.create_publisher(String, '/go_target', qos_profile)
+        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
+
+        self.timer_period_between_target_switch = 10.0 # sec  # à modifier à la guide des distances entre targets
+
+        # TARGETS TEST VOL I
+        self.target_1 = "0,0,7" # répétabilité en x
+        self.target_2 = "3.5,0,7"
+        self.target_3 = "0,0,7" 
+        self.target_4 = "3.5,0,7"
+        self.target_5 = "0,0,7"
+        self.target_6 = "3.5,0,7"
+
+        self.target_7 = "0,0,7" # y
+        self.target_8 = "0,3.5,7"
+
+        self.target_9 = "0,0,7" # z haut
+        self.target_10 = "0,0,15"
+
+        self.target_11 = "0,0,7" # répétabilité en z
+        self.target_12 = "0,0,12"
+        self.target_13 = "0,0,7"
+        self.target_14 = "0,0,12"
+        self.target_15 = "0,0,7"
+        self.target_16 = "0,0,12"
+
+        self.target_17 = "3.5,0,12" # Z for Zenith
+        self.target_18 = "0,0,7"
+        self.target_19 = "3.5,0,7"
+        self.target_20 = "0,0,7"
+        self.target_21 = "3.5,0,12"
+        self.target_22 = "0,0,12" # Z for Zenith again
+        self.target_23 = "3.5,0,12" 
+        self.target_24 = "0,0,7"
+        self.target_25 = "3.5,0,7"
+
+        self.target_26 = "3.5,15,7"
+
+        self.targets = []
+        for i in range(1, 27):  # De 1 à 26 inclus
+            self.targets.append(getattr(self, f"target_{i}"))
+
+        self.i = 0
+        self.last_target = ""
+        self.last_record_time_ct = 0.0
+        self.last_record_time_glt = 0.0
+    
+        self.get_logger().info(f"Publisher initialized, will publish to '/go_target' every {self.timer_period_between_target_switch} seconds when approach start")
+
+    def timer_callback(self):
+        msg = String()
+        self.tar = (self.i) % len(self.targets)      # liste et index circulaire
+        msg.data = self.targets[self.tar]
+        self.publisher_target.publish(msg)
+
+        # Section de contrôle de changement de target et de print terminaux de celle-ci
+        current_time = time.time()
+        elapsed_change_target = current_time - self.last_record_time_ct
+        elapsed_get_logger_target = current_time - self.last_record_time_glt
+
+        if elapsed_change_target > self.timer_period_between_target_switch:
+            self.i += 1
+            self.last_record_time_ct = current_time
+
+        if elapsed_get_logger_target > 0.5:
+            self.get_logger().info(f'Published target at {self.Hertz} Hz: "{msg.data}"')
+            self.last_record_time_glt = current_time
+
+    def atg_callback(self, msg):
+        if msg.data == "GO!":
+            self.get_logger().info(f'message {msg.data} received to start target')
+            self.Hertz = 15
+            self.timer = self.create_timer(1/self.Hertz, self.timer_callback)
+
+        else:
+            self.get_logger().info(f'Error in message received for target, GO! to start : {msg.data}')
+
+    def close_callback(self, msg):
+        if msg.data == "close":
+            self.destroy_node()
+            rclpy.shutdown()
+        
+def main(args=None):
+    rclpy.init(args=args)
+    node = GoApproachPublisher()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
