@@ -18,7 +18,7 @@ class GoApproachPublisher(Node):
         self.publisher_target = self.create_publisher(String, '/go_target', qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
 
-        self.timer_period_between_target_switch = 8.0 # sec  # à modifier à la guide des distances entre targets
+        self.timer_period_between_target_switch = 10.0 # sec  # à modifier à la guide des distances entre targets
 
         # TARGETS TEST VOL I
         self.target_1 = "0,0,7" # répétabilité en x

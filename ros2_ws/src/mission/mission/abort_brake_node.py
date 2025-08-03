@@ -18,6 +18,7 @@ class AbortBrake(Node):
         self.subscriber_ab = self.create_subscription(String, '/abort_brake', self.abort_brake_callback, qos_profile)
         self.publisher_ab_call = self.create_publisher(String, '/close', qos_profile)
         self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
+        #self.nav = Zenmav(ip = 'udp:127.0.0.1:14550')
 
     def abort_brake_callback(self, msg):
         if msg.data == "a.b.":
@@ -29,6 +30,7 @@ class AbortBrake(Node):
             msg_close.data = "close"
             self.publisher_ab_call.publish(msg_close)
             self.get_logger().info(f'Nodes approach, target and graph successfully closed!')
+            time.sleep(3)
 
             self.nav.set_mode('GUIDED')
             self.get_logger().info(f'Guided mode successfully enforced!')
