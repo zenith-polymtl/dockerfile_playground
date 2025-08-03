@@ -25,8 +25,8 @@ class AbortBrake(Node):
         self.subscriber_ab = self.create_subscription(String, '/abort_brake', self.abort_brake_callback, qos_profile)
         self.publisher_ab_call = self.create_publisher(String, '/close', qos_profile)
         self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile_BE)
-        self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763') # pour simu
-        #self.nav = Zenmav(ip = 'udp:127.0.0.1:14550') # pour test de vol
+        #self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763') # pour simu
+        self.nav = Zenmav(ip = 'udp:127.0.0.1:14550') # pour test de vol
 
     def pose_callback(self,msg):
         self.curr_pos = msg.pose.position

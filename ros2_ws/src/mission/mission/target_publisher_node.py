@@ -18,43 +18,42 @@ class GoApproachPublisher(Node):
         self.publisher_target = self.create_publisher(String, '/go_target', qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
 
-        self.timer_period_between_target_switch = 10.0 # sec  # à modifier à la guide des distances entre targets
+        self.timer_period_between_target_switch = 6.0 # sec  # à modifier à la guide des distances entre targets
 
         # TARGETS TEST VOL I
-        self.target_1 = "0,0,7" # répétabilité en x
-        self.target_2 = "3.5,0,7"
-        self.target_3 = "0,0,7" 
-        self.target_4 = "3.5,0,7"
-        self.target_5 = "0,0,7"
-        self.target_6 = "3.5,0,7"
+        
 
-        self.target_7 = "0,0,7" # y
-        self.target_8 = "0,3.5,7"
+        # TARGETS TEST DE VOL II
+        self.target_1 = "0,0,8"
+        self.target_2 = "3,0,8"
+        self.target_3 = "0,0,8" 
+        self.target_4 = "3,0,8"
 
-        self.target_9 = "0,0,7" # z haut
-        self.target_10 = "0,0,15"
+        self.target_5 = "0,0,8"
+        self.target_6 = "3,3,8"
+        self.target_7 = "0,0,8" 
+        self.target_8 = "3,3,8"
 
-        self.target_11 = "0,0,7" # répétabilité en z
-        self.target_12 = "0,0,12"
-        self.target_13 = "0,0,7"
-        self.target_14 = "0,0,12"
-        self.target_15 = "0,0,7"
-        self.target_16 = "0,0,12"
+        self.target_9 = "0,0,8"
+        self.target_10 = "3,3,11"
+        self.target_11 = "0,0,8" 
+        self.target_12 = "3,3,11"
 
-        self.target_17 = "3.5,0,12" # Z for Zenith
-        self.target_18 = "0,0,7"
-        self.target_19 = "3.5,0,7"
-        self.target_20 = "0,0,7"
-        self.target_21 = "3.5,0,12"
-        self.target_22 = "0,0,12" # Z for Zenith again
-        self.target_23 = "3.5,0,12" 
-        self.target_24 = "0,0,7"
-        self.target_25 = "3.5,0,7"
+        self.target_13 = "3,3,10"
+        self.target_14 = "3,3,9"
+        self.target_15 = "3,3,8"
+        self.target_16 = "3,3,7"
+        self.target_17 = "3,3,10"
+        self.target_18 = "3,3,9"
+        self.target_19 = "3,3,8"
+        self.target_20 = "3,3,7"
 
-        self.target_26 = "3.5,15,7"
+
+
+
 
         self.targets = []
-        for i in range(1, 27):  # De 1 à 26 inclus
+        for i in range(1, 21):  # De 1 à 12 inclus
             self.targets.append(getattr(self, f"target_{i}"))
 
         self.i = 0

@@ -10,11 +10,11 @@ def generate_launch_description():
         name="approach_node"
     )
     
-    web_manual_control_node = Node(
+    """web_manual_control_node = Node(
             package="mission",
             executable="control",
             name="web_manual_control_node"
-        )
+        )"""
 
     graph_node = Node(
             package="mission",
@@ -37,6 +37,6 @@ def generate_launch_description():
     ld.add_action(target_publisher_node)
     ld.add_action(approach_node)
     ld.add_action(graph_node)
-    ld.add_action(web_manual_control_node)
+    #ld.add_action(web_manual_control_node)
     ld.add_action(abort_brake_node)
     return ld
