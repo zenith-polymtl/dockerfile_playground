@@ -3,6 +3,7 @@ import time
 from rclpy.node import Node
 from std_msgs.msg import String
 from zenmav.core import Zenmav
+from geometry_msgs.msg import TwistStamped, PoseStamped
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 class AbortBrake(Node):
@@ -15,25 +16,42 @@ class AbortBrake(Node):
             depth=8
         )
 
+        qos_profile_BE = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=8
+        )
+
         self.subscriber_ab = self.create_subscription(String, '/abort_brake', self.abort_brake_callback, qos_profile)
         self.publisher_ab_call = self.create_publisher(String, '/close', qos_profile)
-        self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763')
-        #self.nav = Zenmav(ip = 'udp:127.0.0.1:14550')
+        self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile_BE)
+        self.nav = Zenmav(ip = 'tcp:127.0.0.1:5763') # pour simu
+        #self.nav = Zenmav(ip = 'udp:127.0.0.1:14550') # pour test de vol
+
+    def pose_callback(self,msg):
+        self.curr_pos = msg.pose.position
 
     def abort_brake_callback(self, msg):
         if msg.data == "a.b.":
-            self.get_logger().info(f'Brake incoming, {msg.data} received!')
+            #self.get_logger().info(f'message test')
+            self.get_logger().info(f'Brake incoming at {time.time():.3f} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}), {msg.data} received!')
             self.nav.set_mode('BRAKE')
             self.get_logger().info(f'Brake mode successfully enforced!')
 
             msg_close = String()
             msg_close.data = "close"
             self.publisher_ab_call.publish(msg_close)
-            self.get_logger().info(f'Nodes approach, target and graph successfully closed!')
+            self.get_logger().info(f'Nodes approach, target and graph successfully closed at {time.time():.3f} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})!')
             time.sleep(3)
 
             self.nav.set_mode('GUIDED')
-            self.get_logger().info(f'Guided mode successfully enforced!')
+            self.get_logger().info(f'Guided mode successfully enforced at {time.time():.3f}! at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})')
+
+            AbortBrake().destroy_node()
+            rclpy.shutdown()
+
+        else:
+            self.get_logger().info(f'Abort brake command not recognized: {msg.data}')
         
 def main(args=None):
     rclpy.init(args=args)

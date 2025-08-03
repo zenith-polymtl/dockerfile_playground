@@ -116,6 +116,12 @@ sudo rm -rf /home/avatar/dockerfile_playground/ros2_ws/data/*       # clear csv 
 python3 graph_crea_xyz.py             # Dans un terminal hors docker, ex : avatar@PcLaurent:~$
 ```
 
+### Fermer une node : 
+
+```bash
+pkill -f abort_brake_node             # Forcer la fermeture d'une node
+```
+
 ## 5. Notes Importantes
 
 ### Systèmes de Coordonnées

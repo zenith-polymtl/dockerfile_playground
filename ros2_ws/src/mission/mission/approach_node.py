@@ -86,6 +86,8 @@ class ApproachNode(Node):
         self.approach_active = False
         self.last_time = self.get_clock().now()
         self.der_target_recu = " "
+        self.i = 0
+        self.before_x, self.before_y, self.before_z = None, None, None
 
         self.Hertz_control = 30
         self.timer = self.create_timer(1/self.Hertz_control, self.control_loop)
@@ -105,8 +107,12 @@ class ApproachNode(Node):
                 self.target_pos = target(float(x), float(y), float(z))
                 self.Failsafe_target_too_far()
 
+                if not x == self.before_x or not y == self.before_y or not z == self.before_z:
+                    self.i += 1
+                    self.before_x, self.before_y, self.before_z = x, y, z
+
                 temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-                self.get_logger().info(f"target {self.target_pos.x, self.target_pos.y, self.target_pos.z} received at {temps}")
+                self.get_logger().info(f"target {self.i} {self.target_pos.x, self.target_pos.y, self.target_pos.z} received at {temps}")
 
             else:
                 self.get_logger().warn("Target received, but no position data received yet!")
@@ -114,7 +120,6 @@ class ApproachNode(Node):
     def Failsafe_target_too_far(self):
         if self.der_target_recu != " ":
             diff_x = self.der_target_recu.x - self.target_pos.x
-            self.get_logger().warn(f"diff_x: {diff_x}")
             diff_y = self.der_target_recu.y - self.target_pos.y
             diff_z = self.der_target_recu.z - self.target_pos.z
             norme = (diff_x**2 + diff_y**2 + diff_z**2)**(1/2)
@@ -122,6 +127,9 @@ class ApproachNode(Node):
                 msg = String()
                 msg.data = "a.b."
                 self.get_logger().warn(f"Failsafe triggered: Target received is way too far from last one : {norme:.3f} mètres. Switching to BRAKE mode.")
+                self.get_logger().warn(f"diff_x: {diff_x}")
+                self.get_logger().warn(f"diff_y: {diff_y}")
+                self.get_logger().warn(f"diff_z: {diff_z}")
                 self.abort_state_pub.publish(msg)
 
         self.der_target_recu = self.target_pos
@@ -130,7 +138,7 @@ class ApproachNode(Node):
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):
             elapsed = time.time() - self.der_target_time_recu
-            max_time_without_target = 2.0 # secondes # on vise entre 0.2 et 0.8
+            max_time_without_target = 3.0 # secondes # on vise entre 0.2 et 0.8
             if elapsed >= max_time_without_target:
                 self.get_logger().warn(f"Failsafe triggered: No target received in {max_time_without_target}s. Switching to BRAKE mode.")
                 msg = String()
@@ -147,7 +155,7 @@ class ApproachNode(Node):
         current_time = time.time()
         temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))
 
-        if current_time - self.last_log_time_pose >= 1.0:
+        if current_time - self.last_log_time_pose >= 0.20:
             self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}) at {temps}")
             self.last_log_time_pose = current_time
 

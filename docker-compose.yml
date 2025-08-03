@@ -29,3 +29,4 @@ services:
       - QT_X11_NO_MITSHM=1
       - DISPLAY
       - XAUTHORITY=/root/.Xauthority
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp

@@ -59,8 +59,7 @@ class GoApproachPublisher(Node):
 
         self.i = 0
         self.last_target = ""
-        self.last_record_time_ct = 0.0
-        self.last_record_time_glt = 0.0
+        self.last_record_time_ct, self.last_record_time_glt = time.time(), time.time()
     
         self.get_logger().info(f"Publisher initialized, will publish to '/go_target' every {self.timer_period_between_target_switch} seconds when approach start")
 
