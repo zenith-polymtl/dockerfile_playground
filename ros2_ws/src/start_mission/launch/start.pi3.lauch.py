@@ -10,11 +10,11 @@ def generate_launch_description():
         name="approach_node"
     )
     
-    """web_manual_control_node = Node(
+    web_manual_control_node = Node(
             package="mission",
             executable="control",
             name="web_manual_control_node"
-        )"""
+        )
 
     graph_node = Node(
             package="mission",

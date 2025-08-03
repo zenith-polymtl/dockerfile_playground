@@ -48,12 +48,8 @@ class GoApproachPublisher(Node):
         self.target_19 = "3,3,8"
         self.target_20 = "3,3,7"
 
-
-
-
-
         self.targets = []
-        for i in range(1, 21):  # De 1 à 12 inclus
+        for i in range(1, 21):
             self.targets.append(getattr(self, f"target_{i}"))
 
         self.i = 0
