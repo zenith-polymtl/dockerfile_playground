@@ -19,7 +19,7 @@ from rclpy.executors import MultiThreadedExecutor
 
 class DroneWebControl(Node):
     def __init__(self):
-        Node.__init__(self, 'drone_web_control')
+        Node.__init__(self, 'web_manual_control')
         
         self.web_dir = os.path.join(get_package_share_directory('mission'), 'control_interface')
         self.html_path = os.path.join(self.web_dir, 'index.html')
@@ -237,7 +237,7 @@ class DroneWebControl(Node):
                 self.battery_changed_pub.publish(msg)
                 await self.send_terminal_message("Battery change acknowledged")
             elif command == 'abort':
-                msg.data = "ABORT"
+                msg.data = "a.b."
                 self.abort_state_pub.publish(msg)
                 await self.send_terminal_message("!!! ABORT STATE ACTIVATED !!!")
             elif command == 'confirm_arming':

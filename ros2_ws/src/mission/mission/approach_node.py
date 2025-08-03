@@ -49,9 +49,10 @@ class ApproachNode(Node):
         )
 
         self.publisher_ = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
+        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
         self.subscriber_man = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
         self.subscriber_go = self.create_subscription(String, '/go_approach', self.go_approach_callback, qos_profile)
-        self.subscriber_abort = self.create_subscription(String, '/abort_state', self.abort_callback, qos_profile)
+        self.subscriber_abort = self.create_subscription(String, '/abort_brake', self.abort_callback, qos_profile)
         self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.local_position_callback, qos_profile)
         self.set_mode_client = self.create_client(SetMode, '/mavros/set_mode')
         while not self.set_mode_client.wait_for_service(timeout_sec=2.0):

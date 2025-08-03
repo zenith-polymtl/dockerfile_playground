@@ -36,7 +36,6 @@ setup(
             'water = mission.water_measure:main',
             'camera = mission.cam_pub:main',
             'graph = mission.graph_node:main',
-            'kill = mission.kill_node:main',
             'abort = mission.abort_brake_node:main',
             'targets = mission.target_publisher_node:main',
         ],

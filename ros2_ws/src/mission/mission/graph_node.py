@@ -12,7 +12,6 @@ class GraphNode(Node):
     def __init__(self):
         super().__init__('graph')
         self.last_record_time = 0
-        self.first_time_AUTO = True
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -20,38 +19,26 @@ class GraphNode(Node):
             depth=10
         )
 
-        self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
-
-        self.subscription_pose = self.create_subscription(
-            PoseStamped,
-            '/mavros/local_position/pose',
-            self.pose_callback, qos_profile)
-
-        self.subscription_target = self.create_subscription(
-            String,
-            '/go_approach',
-            self.target_callback, qos_profile)
+        self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
+        self.subscription_pose = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile)
+        self.subscription_target = self.create_subscription(String, '/go_target', self.target_callback, qos_profile)
+        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
 
         self.current_target = {'x': None, 'y': None, 'z': None}
-        self.last_log_time = -1  # Initialisation du dernier temps de log
+        self.last_log_time = -1
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.csv_file = f"data/pos_xyz_{timestamp_str}.csv"
         os.makedirs("data", exist_ok=True)
 
-        # Initialise le fichier CSV avec les en-têtes
         self.df = pd.DataFrame(columns=['pos_x', 'pos_y', 'pos_z', 'tar_x', 'tar_y', 'tar_z', 'time'])
         self.df.to_csv(self.csv_file, index=False)
 
-    def manual_callback(self, msg):
-        if msg.data == "AUTO":
-            self.get_logger().info(f'message AUTO received for graph')
-            if self.first_time_AUTO == True:
-                self.start_time = time.time()
-        if msg.data == "MANUAL":
-            self.get_logger().info(f'message MANUAL received to stop graph')
-            self.first_time_AUTO = False
+    def atg_callback(self, msg):
+        if msg.data == "GO!":
+            self.get_logger().info(f'message {msg.data} received to start graph')
+            self.start_time = time.time()
         else:
-            self.get_logger().info(f'message AUTO not received for graph : {msg.data}')
+            self.get_logger().info(f'message GO! not received for graph : {msg.data}')
 
     def target_callback(self, msg):
         try:
@@ -65,8 +52,9 @@ class GraphNode(Node):
             self.get_logger().error(f'Erreur de parsing du message target: {e}')
 
     def pose_callback(self, msg):
-        # ✅ Vérifie que les coordonnées cibles sont bien définies
         current_time = time.time()
+
+        # Vérifie que les coordonnées cibles sont bien définies
         if None in self.current_target.values():
             if current_time - self.last_log_time >= 2:
                 self.get_logger().warn("Cible non encore définie, ligne ignorée")
@@ -77,8 +65,9 @@ class GraphNode(Node):
 
         elapsed = current_time - self.last_record_time
 
-        if elapsed < 0.2:
-            return  # ignore si moins de 0.2s depuis le dernier enregistrement
+        self.timer_elapsed = 0.2 # secondes
+        if elapsed < self.timer_elapsed:
+            return  # ignore si moins de "self.timer_elapsed" depuis le dernier enregistrement de données
 
         self.last_record_time = current_time
 
@@ -90,19 +79,16 @@ class GraphNode(Node):
         tar_z = self.current_target['z']
         timestamp = time.time() - self.start_time
 
-        row = {
-            'pos_x': pos_x,
-            'pos_y': pos_y,
-            'pos_z': pos_z,
-            'tar_x': tar_x,
-            'tar_y': tar_y,
-            'tar_z': tar_z,
-            'time': timestamp
-        }
+        row = {'pos_x': pos_x, 'pos_y': pos_y, 'pos_z': pos_z, 'tar_x': tar_x, 'tar_y': tar_y, 'tar_z': tar_z, 'time': timestamp}
 
-        # Append à la volée
+        # Append à la volée à chaque "self.timer_elapsed"
         pd.DataFrame([row]).to_csv(self.csv_file, mode='a', header=False, index=False)
         self.get_logger().info(f'Donnée enregistrée à t={timestamp:.2f}s')
+
+    def close_callback(self, msg):
+        if msg.data == "close":
+            self.destroy_node()
+            rclpy.shutdown()
 
 def main(args=None):
     rclpy.init(args=args)

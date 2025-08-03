@@ -1,11 +1,12 @@
 import rclpy
+import time
 from rclpy.node import Node
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 class GoApproachPublisher(Node):
     def __init__(self):
-        super().__init__('go_approach_publisher')
+        super().__init__('target_publisher')
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -13,31 +14,38 @@ class GoApproachPublisher(Node):
             depth=10
         )
 
-        self.manual_got_called = False # Control flag
+        #self.manual_got_called = False # Control flag
 
-        self.subscriber_ = self.create_subscription(String, '/manual', self.manual_callback, qos_profile)
-        self.publisher_ = self.create_publisher(String, '/go_approach', 10)
+        self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
+        self.publisher_target = self.create_publisher(String, '/go_target', qos_profile)
+        self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, qos_profile)
 
-        # Set timer period at start (in seconds)
-        self.timer_period = 7.0
+        self.timer_period_between_target_switch = 8.0   # à modifier à la guide des distances entre targets
         self.target_1 = "0,0,15"
         self.target_2 = "11,6,18"
         self.target_3 = "-1,12,16"
         self.target_4 = "3,5,17"
-        #self.target_1 = "0,0,15"
-        #self.target_2 = "100,100,15"
-        #self.target_3 = "0,0,15"
-        #self.target_4 = "100,100,15"
+
         self.targets = [self.target_1, self.target_2, self.target_3, self.target_4]
-        self.i = -1
+        self.i = 0
         self.last_target = ""
     
-        self.get_logger().info(f"Publisher initialized, will publish to '/go_approach' every {self.timer_period} seconds when approach start")
+        self.get_logger().info(f"Publisher initialized, will publish to '/go_target' every {self.timer_period} seconds when approach start")
 
     def timer_callback(self):
         msg = String()
-        self.i = (self.i + 1) % len(self.targets)      # liste et index circulaire
-        msg.data = self.targets[self.i]
+        self.tar = (self.i) % len(self.targets)      # liste et index circulaire
+        msg.data = self.targets[self.tar]
+        self.publisher_target.publish(msg)
+
+        # Section de contrôle de changement de target et de print terminaux de celle-ci
+        current_time = time.time()
+        elapsed_change_target = current_time - self.last_record_time_ct
+        elapsed_get_logger_target = current_time - self.last_record_time_glt
+
+        if elapsed_change_target > self.timer_period_between_target_switch:
+            self.i += 1
+            self.last_record_time_ct = current_time
 
         """if self.i == 3:        # à effacer si lignes hauts fonctionnent
             msg.data = self.target_1
@@ -51,32 +59,25 @@ class GoApproachPublisher(Node):
         elif self.i == 0:
             msg.data = self.target_4
             self.i += 1"""
-        self.publisher_.publish(msg)
-        self.last_target = msg.data #
-        if not hasattr(self, 'republish_timer'):
-            self.republish_timer = self.create_timer(0.03, self.republish_target)
-        self.get_logger().info(f'Published: "{msg.data}"')
 
-    def republish_target(self):
-        if self.last_target:
-            msg = String()
-            msg.data = self.last_target
-            self.publisher_.publish(msg)
+        if elapsed_get_logger_target > 0.5:
+            self.get_logger().info(f'Published target at "{self.Hertz}": "{msg.data}"')
+            self.last_record_time_glt = current_time
 
-    def manual_callback(self, msg):
-        if msg.data == "AUTO":
-            self.get_logger().info(f'message AUTO received for target')
-            self.manual_got_called = True
-            self.timer_callback()
-            self.timer = self.create_timer(self.timer_period, self.timer_callback)
-        if msg.data == "MANUAL":
-            self.get_logger().info(f'message MANUAL received to stop target')
-            self.manual_got_called = False
-            if not hasattr(self, 'republish_timer'):
-                self.republish_timer.cancel()
-            self.timer.cancel()   # à tester
+    def atg_callback(self, msg):
+        if msg.data == "GO!":
+            self.get_logger().info(f'message {msg.data} received to start target')
+            self.Hertz = 20 # à changer si voulu
+            self.timer = self.create_timer(1/self.Hertz, self.timer_callback)
+
         else:
-            self.get_logger().info(f'no good message received for target: {msg.data}')
+            self.get_logger().info(f'Error in message received for target, GO! to start : {msg.data}')
+
+    def close_callback(self, msg):
+        if msg.data == "close":
+            self.destroy_node()
+            rclpy.shutdown()
+
         
 def main(args=None):
     rclpy.init(args=args)
