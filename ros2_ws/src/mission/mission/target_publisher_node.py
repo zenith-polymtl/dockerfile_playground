@@ -23,7 +23,7 @@ class GoApproachPublisher(Node):
         # TARGETS TEST VOL I
         self.target_1 = "0,0,7" # répétabilité en x
         self.target_2 = "3.5,0,7"
-        self.target_3 = "0,0,7"
+        self.target_3 = "0,0,7" 
         self.target_4 = "3.5,0,7"
         self.target_5 = "0,0,7"
         self.target_6 = "3.5,0,7"
@@ -51,8 +51,10 @@ class GoApproachPublisher(Node):
         self.target_24 = "0,0,7"
         self.target_25 = "3.5,0,7"
 
+        self.target_26 = "3.5,15,7"
+
         self.targets = []
-        for i in range(1, 26):  # De 1 à 25 inclus
+        for i in range(1, 27):  # De 1 à 26 inclus
             self.targets.append(getattr(self, f"target_{i}"))
 
         self.i = 0

@@ -85,13 +85,15 @@ class ApproachNode(Node):
         self.atg_got_called = False
         self.approach_active = False
         self.last_time = self.get_clock().now()
+        self.der_target_recu = " "
 
         self.Hertz_control = 30
         self.timer = self.create_timer(1/self.Hertz_control, self.control_loop)
 
     def go_target_callback(self, msg):
         if self.atg_got_called == True:
-            if self.curr_pos: 
+            if self.curr_pos:
+
                 self.approach_active = True
                 x, y, z = msg.data.split(",")
 
@@ -100,13 +102,31 @@ class ApproachNode(Node):
                     Hertz = 15
                     self.timer_target = self.create_timer(1/Hertz, self.Failsafe_target_acquired)
 
-                temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 self.target_pos = target(float(x), float(y), float(z))
+                self.Failsafe_target_too_far()
+
+                temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 self.get_logger().info(f"target {self.target_pos.x, self.target_pos.y, self.target_pos.z} received at {temps}")
 
             else:
                 self.get_logger().warn("Target received, but no position data received yet!")
     
+    def Failsafe_target_too_far(self):
+        if self.der_target_recu != " ":
+            diff_x = self.der_target_recu.x - self.target_pos.x
+            self.get_logger().warn(f"diff_x: {diff_x}")
+            diff_y = self.der_target_recu.y - self.target_pos.y
+            diff_z = self.der_target_recu.z - self.target_pos.z
+            norme = (diff_x**2 + diff_y**2 + diff_z**2)**(1/2)
+            if norme >= 10.0: # mètres d'écart entre target passée et actuelle
+                msg = String()
+                msg.data = "a.b."
+                self.get_logger().warn(f"Failsafe triggered: Target received is way too far from last one : {norme:.3f} mètres. Switching to BRAKE mode.")
+                self.abort_state_pub.publish(msg)
+
+        self.der_target_recu = self.target_pos
+
+
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):
             elapsed = time.time() - self.der_target_time_recu
