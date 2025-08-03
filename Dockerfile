@@ -1,9 +1,14 @@
 # syntax=docker/dockerfile:1.6
 ARG ROS_DISTRO=humble
 FROM --platform=$TARGETPLATFORM ros:${ROS_DISTRO}-ros-base
+# syntax=docker/dockerfile:1.6
+ARG ROS_DISTRO=humble
+FROM --platform=$TARGETPLATFORM ros:${ROS_DISTRO}-ros-base
 
 ARG TARGETPLATFORM
+ARG TARGETPLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Update & install ROS/colcon build tools
@@ -104,6 +109,8 @@ RUN python3 -m pip install --upgrade \
 RUN python3 -m pip cache purge && \
     pip3 install --no-cache-dir --resume-retries 3 opencv-python && \
     python3 -m pip install --no-cache-dir --resume-retries 10 \
+        torch==2.3.0 \
+        torchvision==0.18.0 \
         torch==2.3.0 \
         torchvision==0.18.0 \
         --index-url https://download.pytorch.org/whl/cpu && \
