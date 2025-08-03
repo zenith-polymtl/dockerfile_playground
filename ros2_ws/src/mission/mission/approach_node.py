@@ -130,7 +130,7 @@ class ApproachNode(Node):
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):
             elapsed = time.time() - self.der_target_time_recu
-            max_time_without_target = 0.4 # secondes
+            max_time_without_target = 2.0 # secondes # on vise entre 0.2 et 0.8
             if elapsed >= max_time_without_target:
                 self.get_logger().warn(f"Failsafe triggered: No target received in {max_time_without_target}s. Switching to BRAKE mode.")
                 msg = String()
