@@ -10,7 +10,7 @@ import time
 
 
 class PIDController():
-    def __init__(self, kp, ki, kd, max_output = 3.0):  # 3.0 m/s norm is max output for vel in xy directions vectorially
+    def __init__(self, kp, ki, kd, max_output = 3.0):  # Une norme de 3.0 m/s est le max pour vitesses xy envoyées au drone
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -64,7 +64,7 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)
 
-        # PID Controllers for XYZ pos control by Ziegler-Nichols Method       [pas fini]
+        # PID Controllers for XYZ pos control by Ziegler-Nichols Method       [pas fait]
         """self.pid_x = PIDController(kp=0.6, ki=0, kd=0.0)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.0)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.0)"""
@@ -74,7 +74,7 @@ class ApproachNode(Node):
         self.pid_y = PIDController(kp=1, ki=0, kd=0)
         self.pid_z = PIDController(kp=1, ki=0, kd=0)"""
 
-        # PID TEST DE VOL for XYZ pos control                [non modif encore en test]
+        # PID TEST DE VOL for XYZ pos control                [non modif car bien en test]
         """self.pid_x = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_y = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_z = PIDController(kp=0.73, ki=0, kd=0.3)"""
@@ -133,7 +133,6 @@ class ApproachNode(Node):
                 self.abort_state_pub.publish(msg)
 
         self.der_target_recu = self.target_pos
-
 
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):

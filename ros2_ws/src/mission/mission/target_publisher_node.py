@@ -54,7 +54,7 @@ class GoApproachPublisher(Node):
         self.target_26 = "3.5,15,7"
 
         self.targets = []
-        for i in range(1, 27):  # De 1 à 26 inclus
+        for i in range(1, 27):  # (1, N+1)
             self.targets.append(getattr(self, f"target_{i}"))
 
         self.i = 0

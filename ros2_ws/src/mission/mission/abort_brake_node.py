@@ -33,15 +33,16 @@ class AbortBrake(Node):
 
     def abort_brake_callback(self, msg):
         if msg.data == "a.b.":
-            #self.get_logger().info(f'message test')
-            self.get_logger().info(f'Brake incoming at {time.time():.3f} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}), {msg.data} received!')
-            self.nav.set_mode('BRAKE')
-            self.get_logger().info(f'Brake mode successfully enforced!')
 
             msg_close = String()
             msg_close.data = "close"
             self.publisher_ab_call.publish(msg_close)
             self.get_logger().info(f'Nodes approach, target and graph successfully closed at {time.time():.3f} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})!')
+
+            self.get_logger().info(f'Brake incoming at {time.time():.3f} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}), {msg.data} received!')
+            self.nav.set_mode('BRAKE')
+            self.get_logger().info(f'Brake mode successfully enforced!')
+
             time.sleep(3)
 
             self.nav.set_mode('GUIDED')
@@ -51,7 +52,7 @@ class AbortBrake(Node):
             rclpy.shutdown()
 
         else:
-            self.get_logger().info(f'Abort brake command not recognized: {msg.data}')
+            self.get_logger().info(f'Abort brake command ("a.b.") not recognized: {msg.data}')
         
 def main(args=None):
     rclpy.init(args=args)
