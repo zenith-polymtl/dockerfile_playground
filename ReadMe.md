@@ -160,3 +160,19 @@ ros2 topic echo /mavros/local_position/pose #2.1
 ros2 launch start_mission start.pi3.lauch.py    #2.2
 python3 graph_crea_xyz.py   #3
 ```
+
+## 7. Test de vol
+
+ON OFA (connect to host) : 
+i. Docker up
+ii. Message request
+iii. Lauch approach file except control node
+
+ON UBUNTU : 
+i. Docker up
+ii. ros2 run control node
+iii. begin approach or brake while drone took off
+
+ON MP :
+i. Modif paramètres
+ii. Take off when armed by pilot
