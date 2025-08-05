@@ -59,13 +59,9 @@ function setBuckets() {
 }
 
 function confirmAbort() {
-    if (confirm('Are you sure you want to ABORT?')) {
-        sendCommand('abort');
-    }
+    sendCommand('abort');
 }
 
 function confirmArming() {
-    if (confirm('Confirm ARMED, GUIDED, and AUTHORISE TAKEOFF?')) {
-        sendCommand('confirm_arming');
-    }
+    sendCommand('confirm_arming');
 }
