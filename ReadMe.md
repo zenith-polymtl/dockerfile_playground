@@ -104,10 +104,11 @@ ros2 topic pub /go_approach std_msgs/String 'data: 99,90,-15' -1
 sudo chown -R avatar:avatar /home/avatar/dockerfile_playground/ros2_ws/install
 ```
 
-### Pour supprimer des fichiers sans avoir les permissions : 
+### Pour supprimer ou créer des fichiers sans avoir les permissions : 
 
 ```bash
 sudo rm -rf /home/avatar/dockerfile_playground/ros2_ws/data/*       # clear csv dans data par exemple
+sudo touch /home/avatar/dockerfile_playground/ros2_ws/log/COLCON_IGNORE  # recrée le fichier COLCON_IGNORE après avoir delete les logs du dossier log
 ```
 
 ### Partir le fichier python de graph : 
