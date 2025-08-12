@@ -47,21 +47,13 @@ function sendCommand(command) {
     ws.send(JSON.stringify({ type: 'command', command: command }));
 }
 
-function setBuckets() {
-    const bucketNumber = document.getElementById('bucketNumber').value;
-    if (bucketNumber) {
+function setAmount(id, command) {
+    const amount = document.getElementById(id).value;
+    if (amount) {
         ws.send(JSON.stringify({ 
             type: 'command', 
-            command: 'set_buckets',
-            data: bucketNumber 
+            command,
+            data: amount 
         }));
     }
-}
-
-function confirmAbort() {
-    sendCommand('abort');
-}
-
-function confirmArming() {
-    sendCommand('confirm_arming');
 }
