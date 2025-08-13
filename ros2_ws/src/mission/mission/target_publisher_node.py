@@ -18,8 +18,8 @@ class GoApproachPublisher(Node):
         self.publisher_target = self.create_publisher(String, '/go_target', qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
 
-        # TARGETS TEST VOL I
-        self.timer_period_between_target_switch = 8.0 # sec
+        """# TARGETS TEST VOL I
+        self.timer_period_between_target_switch = 10.0 # sec
 
         self.target_1 = "0,0,7" # répétabilité en x
         self.target_2 = "3.5,0,7"
@@ -53,7 +53,7 @@ class GoApproachPublisher(Node):
 
         self.target_26 = "3.5,15,7" # to trigger failsafe : target too far
         ### FIN TARGETS TEST DE VOL I
-
+        """
         """# TARGETS TEST DE VOL II
         self.timer_period_between_target_switch = 6.0 # sec
 
@@ -82,8 +82,19 @@ class GoApproachPublisher(Node):
         self.target_20 = "3,3,7"
         ### FIN TARGETS TEST DE VOL II"""
 
+        # TARGETS TEST VOL III
+        self.timer_period_between_target_switch = 15.0 # sec
+
+        self.target_1 = "0,0,12" # Série de trois approches; avec z, xz puis xyz
+        self.target_2 = "0,0,5"
+        self.target_3 = "0,0,12" 
+        self.target_4 = "2.5,0,5"
+        self.target_5 = "0,0,12"
+        self.target_6 = "2.5,1.75,5"
+        ### FIN TARGETS TEST DE VOL III
+
         self.targets = []
-        for i in range(1, 27):  # (1, N+1)
+        for i in range(1, 7):  # (1, N+1) À CHANGER DÉPENDANT DE LA MISSION
             self.targets.append(getattr(self, f"target_{i}"))
 
         self.i = 0

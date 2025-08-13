@@ -9,6 +9,7 @@ services:
     tty: true
     stdin_open: true
     # ⬇️  Bind-mount your workspaces so you can edit freely
+    # If simulation on Mission Planner or real flight test : change address to tcp:// ou udp:// (near line 24)
     volumes:
       - ./ros2_ws:/ros2_ws:rw
       - /tmp/.X11-unix:/tmp/.X11-unix 
@@ -20,7 +21,7 @@ services:
         colcon build&&
         ros2 daemon start &&
         source install/setup.bash &&
-        ros2 launch mavros apm.launch fcu_url:=udp://127.0.0.1:14551@14551 &
+        ros2 launch mavros apm.launch fcu_url:=tcp://127.0.0.1:5762 &
         tail -f /dev/null
       "
     environment:
