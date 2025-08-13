@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drone Control</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>Drone Control Interface</h1>
+        </div>
+        
+        <div class="sidebar">
+            <h2>{{ sidebar.title }}</h2>
+            <div class="button-group">
+                {% for button in sidebar.buttons %}
+                <button class="{{ button.class }}" onclick="sendCommand('{{ button.command }}')">{{ button.text }}</button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="content-area">
+            {% for section in control_sections %}
+            <div class="control-section">
+                <h2>{{ section.title }}</h2>
+                <div class="button-group">
+                    {% for button in section.buttons %}
+                    <button onclick="sendCommand('{{ button.command }}')">{{ button.text }}</button>
+                    {% endfor %}
+                </div>
+                {% if section.inputs %}
+                <div class="input-group">
+                    {% for input in section.inputs %}
+                    <label>{{ input.label }}</label>
+                    <input type="{{ input.type }}" id="{{ input.id }}" min="{{ input.min }}" value="{{ input.value }}">
+                    <button onclick="setAmount('{{ input.id }}', '{{ input.command }}')" style="min-width: 80px;">Set</button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if section.sensors %}
+                {% for sensor in section.sensors %}
+                    <div class="sensor-display" id="{{ sensor.id }}">
+                        <span>{{ sensor.label }}</span>
+                        <span>{{ sensor.value }}</span>
+                    </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="terminal-area">
+            <h2>System Terminal</h2>
+            <div id="terminal"></div>
+        </div>
+    </div>
+
+    <script src="static/index.js"></script>
+</body>
+</html>
