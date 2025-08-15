@@ -12,7 +12,7 @@ def get_latest_csv(folder_path="ros2_ws/data"):
 
 # 📦 Charger les données
 csv_path = get_latest_csv() # Choisir entre les deux lignes selon le csv à analyser voulu
-#csv_path = "ros2_ws/graph/pos_xyz_20250803_212020.csv"
+#csv_path = "ros2_ws/graph/pos_xyz_20250803_220720.csv"
 df = pd.read_csv(csv_path)
 csv_filename = os.path.basename(csv_path)
 timestamp = os.path.getmtime(csv_path)
