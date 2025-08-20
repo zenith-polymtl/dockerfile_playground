@@ -158,7 +158,7 @@ docker compose up   #1.1
 ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}"   #1.2
 ros2 topic echo /mavros/local_position/pose #2.1
 ros2 launch start_mission start.pi3.lauch.py    #2.2
-python3 graph_crea_xyz.py   #3
+python3 graph_crea_pos_yaw.py   #3
 ```
 
 ## 7. Test de vol

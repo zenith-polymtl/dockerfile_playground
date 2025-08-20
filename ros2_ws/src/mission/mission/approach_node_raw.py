@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import TwistStamped, PoseStamped
+from geometry_msgs.msg import PoseStamped
+from mavros_msgs.msg import PositionTarget
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from zenmav.core import Zenmav
@@ -31,10 +32,11 @@ class PIDController():
         return max(min(output, self.max_output), -self.max_output)
     
 class target():
-    def __init__(self, x, y, z):
+    def __init__(self, x, y, z, yaw):
         self.x = x
         self.y = y
         self.z =z
+        self.yaw = yaw
 
 class ApproachNode(Node):
     def __init__(self):
@@ -52,7 +54,7 @@ class ApproachNode(Node):
             depth=8
         )
 
-        self.publisher_vel = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
+        self.publisher_local_raw = self.create_publisher(PositionTarget, '/mavros/setpoint_raw/local', qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
         self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
         self.subscriber_gt = self.create_subscription(String, '/go_target', self.go_target_callback, qos_profile)
@@ -72,7 +74,7 @@ class ApproachNode(Node):
         self.last_time = self.get_clock().now()
         self.der_target_recu = " "
         self.i = 0
-        self.before_x, self.before_y, self.before_z = None, None, None
+        self.before_x, self.before_y, self.before_z, self.before_yaw = None, None, None, None
 
         self.Hertz_control = 30
         self.timer = self.create_timer(1/self.Hertz_control, self.control_loop)
@@ -82,22 +84,22 @@ class ApproachNode(Node):
             if self.curr_pos:
 
                 self.approach_active = True
-                x, y, z = msg.data.split(",")
+                x, y, z, yaw = msg.data.split(",")
 
                 self.der_target_time_recu = time.time()
                 if not hasattr(self, 'timer_target'):
                     Hertz = 15
                     self.timer_target = self.create_timer(1/Hertz, self.Failsafe_target_acquired)
 
-                self.target_pos = target(float(x), float(y), float(z))
+                self.target_pos = target(float(x), float(y), float(z), float(yaw))
                 self.Failsafe_target_too_far()
 
-                if not x == self.before_x or not y == self.before_y or not z == self.before_z:
+                if not x == self.before_x or not y == self.before_y or not z == self.before_z or not yaw == self.before_yaw:
                     self.i += 1
-                    self.before_x, self.before_y, self.before_z = x, y, z
+                    self.before_x, self.before_y, self.before_z, self.before_yaw = x, y, z, yaw
 
                 temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-                self.get_logger().info(f"target {self.i} {self.target_pos.x, self.target_pos.y, self.target_pos.z} received at {temps}")
+                self.get_logger().info(f"target {self.i} : {self.target_pos.x, self.target_pos.y, self.target_pos.z}, yaw : {(self.target_pos.yaw*180/np.pi):.3f} received at {temps}")
 
             else:
                 self.get_logger().warn("Target received, but no position data received yet!")
@@ -140,7 +142,7 @@ class ApproachNode(Node):
         temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))
 
         if current_time - self.last_log_time_pose >= 0.20:
-            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}) at {temps}")
+            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f} at {temps}")
             self.last_log_time_pose = current_time
 
     def control_loop(self):
@@ -162,16 +164,24 @@ class ApproachNode(Node):
         max_output = self.pid_x.max_output
         vel_x, vel_y = self.Failsafe_max_vel(vel_x,vel_y, max_output)
 
-        twist = TwistStamped()
-        twist.twist.linear.x = vel_x
-        twist.twist.linear.y = vel_y
-        twist.twist.linear.z = vel_z
+        PosTar = PositionTarget()
+        PosTar.coordinate_frame = PositionTarget.FRAME_LOCAL_NED
+        PosTar.type_mask = PositionTarget.IGNORE_PX | PositionTarget.IGNORE_PY | PositionTarget.IGNORE_PZ | \
+                PositionTarget.IGNORE_AFX | PositionTarget.IGNORE_AFY | PositionTarget.IGNORE_AFZ | \
+                PositionTarget.IGNORE_YAW_RATE
+        #PositionTarget.IGNORE_YAW | 
 
-        self.publisher_vel.publish(twist)
+        PosTar.velocity.x = vel_x
+        PosTar.velocity.y = vel_y
+        PosTar.velocity.z = vel_z
+        PosTar.yaw = self.target_pos.yaw # radians
 
+        self.publisher_local_raw.publish(PosTar)
+
+        # Printing velocities and yaw
         current_time = time.time()
         if current_time - self.last_log_time_control >= 0.5:
-            self.get_logger().info(f"PID velocities - X: {vel_x:.3f}, Y: {vel_y:.3f}, Z: {vel_z:.3f} at {current_time:.2f}")
+            self.get_logger().info(f"PID velocities & yaw - X: {vel_x:.3f}, Y: {vel_y:.3f}, Z: {vel_z:.3f} with YAW: {(self.target_pos.yaw*180/np.pi):.3f} at {current_time:.2f}")
             self.last_log_time_control = current_time
 
     def Failsafe_max_vel(self, vel_x,vel_y, max_output):

@@ -5,6 +5,8 @@ from std_msgs.msg import String
 import pandas as pd
 import time
 import os
+import math
+from zenmav.core import Zenmav
 from datetime import datetime
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
@@ -12,6 +14,8 @@ class GraphNode(Node):
     def __init__(self):
         super().__init__('graph')
         self.last_record_time = 0
+
+        self.drone = Zenmav(tcp_ports= "14551,14552") #Pour récup le yaw
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
@@ -29,13 +33,14 @@ class GraphNode(Node):
         self.subscription_target = self.create_subscription(String, '/go_target', self.go_target_callback, qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
 
-        self.current_target = {'x': None, 'y': None, 'z': None}
+
+        self.current_target = {'x': None, 'y': None, 'z': None, 'yaw': None}
         self.last_log_time = -1
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.csv_file = f"data/pos_xyz_{timestamp_str}.csv"
+        self.csv_file = f"data/pos_xyz_yaw_{timestamp_str}.csv"
         os.makedirs("data", exist_ok=True)
 
-        self.df = pd.DataFrame(columns=['pos_x', 'pos_y', 'pos_z', 'tar_x', 'tar_y', 'tar_z', 'time'])
+        self.df = pd.DataFrame(columns=['pos_x', 'pos_y', 'pos_z', 'pos_yaw', 'tar_x', 'tar_y', 'tar_z','tar_yaw', 'time'])
         self.df.to_csv(self.csv_file, index=False)
 
     def atg_callback(self, msg):
@@ -47,11 +52,12 @@ class GraphNode(Node):
 
     def go_target_callback(self, msg):
         try:
-            # Format attendu : "12,34,56"
+            # Format attendu : "-12,34,56.5,pi"
             parts = msg.data.split(',')
             self.current_target['x'] = float(parts[0])
             self.current_target['y'] = float(parts[1])
             self.current_target['z'] = float(parts[2])
+            self.current_target['yaw'] = float(parts[3])
         except Exception as e:
             self.get_logger().error(f'Erreur de parsing du message target: {e}')
 
@@ -78,12 +84,15 @@ class GraphNode(Node):
         pos_x = msg.pose.position.x
         pos_y = msg.pose.position.y
         pos_z = msg.pose.position.z
+        pos_yaw = math.radians(self.drone.heading)  # Convertit le yaw en radians
+        self.get_logger().info(f'pos_yaw à t={timestamp:.2f} est {pos_yaw:.2f} degrés')
         tar_x = self.current_target['x']
         tar_y = self.current_target['y']
         tar_z = self.current_target['z']
+        tar_yaw = self.current_target['yaw']
         timestamp = time.time() - self.start_time
 
-        row = {'pos_x': pos_x, 'pos_y': pos_y, 'pos_z': pos_z, 'tar_x': tar_x, 'tar_y': tar_y, 'tar_z': tar_z, 'time': timestamp}
+        row = {'pos_x': pos_x, 'pos_y': pos_y, 'pos_z': pos_z, 'pos_yaw': pos_yaw, 'tar_x': tar_x, 'tar_y': tar_y, 'tar_z': tar_z, 'tar_yaw': tar_yaw, 'time': timestamp}
 
         # Append à la volée à chaque "self.timer_elapsed"
         pd.DataFrame([row]).to_csv(self.csv_file, mode='a', header=False, index=False)
