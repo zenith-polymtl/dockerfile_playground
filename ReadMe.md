@@ -176,3 +176,5 @@ iii. begin approach or brake while drone took off
 ON MP :
 i. Modif paramètres
 ii. Take off when armed by pilot
+
+## 8. Questions ?

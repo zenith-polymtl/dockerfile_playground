@@ -181,7 +181,7 @@ class ApproachNode(Node):
         # Printing velocities and yaw
         current_time = time.time()
         if current_time - self.last_log_time_control >= 0.5:
-            self.get_logger().info(f"PID velocities & yaw - X: {vel_x:.3f}, Y: {vel_y:.3f}, Z: {vel_z:.3f} with YAW: {(self.target_pos.yaw*180/np.pi):.3f} at {current_time:.2f}")
+            self.get_logger().info(f"PID velocities & yaw - X: {vel_x:.3f}, Y: {vel_y:.3f}, Z: {vel_z:.3f} with YAW: {(self.target_pos.yaw*180/np.pi):.3f}° at {current_time:.2f}")
             self.last_log_time_control = current_time
 
     def Failsafe_max_vel(self, vel_x,vel_y, max_output):

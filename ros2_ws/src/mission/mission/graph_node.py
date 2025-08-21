@@ -5,7 +5,6 @@ from std_msgs.msg import String
 import pandas as pd
 import time
 import os
-import math
 from zenmav.core import Zenmav
 from datetime import datetime
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -15,7 +14,10 @@ class GraphNode(Node):
         super().__init__('graph')
         self.last_record_time = 0
 
-        self.drone = Zenmav(tcp_ports= "14551,14552") #Pour récup le yaw
+        self.get_logger().info(f'Zenmav va être initialisé')
+        self.drone = Zenmav('tcp:127.0.0.1:5761', GCS=True, tcp_ports=[14553])
+        self.drone.wait_for_connection(timeout=10)
+        self.get_logger().info(f'Zenmav connecté!')
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
@@ -32,7 +34,6 @@ class GraphNode(Node):
         self.subscription_pose = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile_BE)
         self.subscription_target = self.create_subscription(String, '/go_target', self.go_target_callback, qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
-
 
         self.current_target = {'x': None, 'y': None, 'z': None, 'yaw': None}
         self.last_log_time = -1
@@ -58,6 +59,7 @@ class GraphNode(Node):
             self.current_target['y'] = float(parts[1])
             self.current_target['z'] = float(parts[2])
             self.current_target['yaw'] = float(parts[3])
+            #self.get_logger().info(f"Target received: {self.current_target}")
         except Exception as e:
             self.get_logger().error(f'Erreur de parsing du message target: {e}')
 
@@ -84,8 +86,7 @@ class GraphNode(Node):
         pos_x = msg.pose.position.x
         pos_y = msg.pose.position.y
         pos_z = msg.pose.position.z
-        pos_yaw = math.radians(self.drone.heading)  # Convertit le yaw en radians
-        self.get_logger().info(f'pos_yaw à t={timestamp:.2f} est {pos_yaw:.2f} degrés')
+        pos_yaw = self.drone.get_global_pos(hdg=True).hdg
         tar_x = self.current_target['x']
         tar_y = self.current_target['y']
         tar_z = self.current_target['z']
