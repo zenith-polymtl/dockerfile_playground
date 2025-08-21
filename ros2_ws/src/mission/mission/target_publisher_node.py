@@ -107,7 +107,7 @@ class GoApproachPublisher(Node):
             x = round(radius * math.cos(angle), 3)
             y = round(radius * math.sin(angle), 3)
             altitude = round(10 + math.sin(angle), 3)
-            yaw = round(angle+np.pi, 3) 
+            yaw = round(angle+np.pi, 3) # à moins hardcode
             targ = f"{x},{y},{altitude}, {yaw}"
             #self.get_logger().info(f'New targ added : {targ} at index : {index}') # Pour vérif, peut être enlevé sinon
             return self.targets.append(targ)

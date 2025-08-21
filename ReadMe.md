@@ -98,6 +98,12 @@ ros2 topic pub /topic std_msgs/String 'data: Hello World' -1
 ros2 topic pub /go_approach std_msgs/String 'data: 99,90,-15' -1
 ```
 
+### Request de publication de messages
+
+```bash
+ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}"   #1.2 si utile finalement
+```
+
 ### Gestion des Permissions de Fichiers
 
 ```bash
@@ -151,11 +157,10 @@ Avant de lancer tous l'environnement ros2 et docker :
 
 ### Liste : 
 
-Pas oublier de rouler le exec en point 3. dans ch. terminaux avant de rouler les commandes si dessous (sauf le compose)
+Pas oublier de rouler le exec en [3.Accès au Conteneur] dans ch. terminaux avant de rouler les commandes si dessous (sauf le compose)
 
 ```bash
-docker compose up   #1.1
-ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}"   #1.2
+docker compose up   #1
 ros2 topic echo /mavros/local_position/pose #2.1
 ros2 launch start_mission start.pi3.lauch.py    #2.2
 python3 graph_crea_pos_yaw.py   #3
@@ -178,3 +183,11 @@ i. Modif paramètres
 ii. Take off when armed by pilot
 
 ## 8. Questions ?
+
+## 9. Planning
+
+--> yaw non harcode, vérif yaw convention for whole pipe, (l.62 de graph_node et targets circle de target_publisher_node)
+
+--> control with pos/vel/acc for smoothness
+
+--> Lire doc caméra pour inté

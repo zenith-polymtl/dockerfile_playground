@@ -9,7 +9,7 @@ services:
     tty: true
     stdin_open: true
     # ⬇️  Bind-mount your workspaces so you can edit freely
-    # If simulation on Mission Planner or real flight test : change address to tcp:// ou udp:// (near line 24)
+    # If simulation on Mission Planner OR real flight test : change address to tcp://127.0.0.1:5763 OR udp:// (near line 24)
     volumes:
       - ./ros2_ws:/ros2_ws:rw
       - /tmp/.X11-unix:/tmp/.X11-unix 

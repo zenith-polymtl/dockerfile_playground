@@ -142,7 +142,7 @@ class ApproachNode(Node):
         temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))
 
         if current_time - self.last_log_time_pose >= 0.20:
-            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f} at {temps}")
+            self.get_logger().info(f"Current position : ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}) at {temps}")
             self.last_log_time_pose = current_time
 
     def control_loop(self):

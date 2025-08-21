@@ -22,7 +22,7 @@ dt_string = datetime.fromtimestamp(timestamp).strftime("%Y%m%d_%H%M%S")
 # 🕰️ Option de filtrage temporel
 start_time = float(input("⏱️ Entrez le temps de départ (ex: 10.0) : "))
 end_time = float(input("⏱️ Entrez le temps de fin (ex: 42.0) : "))
-axis_wanted = input("Entrez les axes à analyser (ex: x ou ou yz ou ENTER pour xyz) : ") or "xyz"
+axis_wanted = input("Entrez les axes à analyser (ex: x ou yz ou zl ou ENTER pour xyzl) : ") or "xyzl"
 
 # 🧼 Filtrer le DataFrame selon le temps
 df_filtered = df[(df["time"] >= start_time) & (df["time"] <= end_time)]
@@ -30,11 +30,15 @@ df_filtered = df[(df["time"] >= start_time) & (df["time"] <= end_time)]
 # 🎨 Créer les graphiques
 nbr_graph = len(axis_wanted)
 fig, axes = plt.subplots(nrows=int(nbr_graph), ncols=1, figsize=(10, 8), sharex=True)
+
 if nbr_graph == 1:
     axes = [axes]  # Assurer que axes est une liste même pour un seul graphique
+
 axes_titles = list(axis_wanted)
 pos_cols, tar_cols = [], []
 for i in range(nbr_graph):
+    if axes_titles[i] == "l":
+        axes_titles[i] = "yaw"
     pos_cols.append(f"pos_{axes_titles[i]}")
     tar_cols.append(f"tar_{axes_titles[i]}")
 
@@ -46,7 +50,7 @@ for i in range(nbr_graph):
     axes[i].grid(True)
 
 axes[nbr_graph-1].set_xlabel("Temps (s)")
-fig.suptitle("Comparaison Position vs Cible")
+fig.suptitle("Position vs Cible")
 
 plt.tight_layout()
 
