@@ -157,9 +157,10 @@ Avant de lancer tous l'environnement ros2 et docker :
 
 ### Liste : 
 
-Pas oublier de rouler le exec en [3.Accès au Conteneur] dans ch. terminaux avant de rouler les commandes si dessous (sauf le compose)
+Pas oublier de rouler #A dans ch. terminaux avant de rouler les commandes si dessous (sauf le compose)
 
 ```bash
+docker exec -it dockerfile_playground-zenith-1 bash  #A
 docker compose up   #1
 ros2 topic echo /mavros/local_position/pose #2.1
 ros2 launch start_mission start.pi3.lauch.py    #2.2
