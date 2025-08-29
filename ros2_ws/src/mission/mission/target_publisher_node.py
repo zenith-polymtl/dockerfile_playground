@@ -107,8 +107,8 @@ class GoApproachPublisher(Node):
             self.targets.append(getattr(self, f"target_{i}"))""" # À inclure pour test de vol targets distinctes
 
         ### TARGETS TEST VOL IV - Cercle
-        nombre_de_points_de_cercle = 24
-        cercle_chrono = 90 #secondes
+        nombre_de_points_de_cercle = 60
+        cercle_chrono = 120 #secondes
         self.timer_period_between_target_switch = cercle_chrono/nombre_de_points_de_cercle # sec
         
         def circular_target(index, radius):
@@ -118,10 +118,10 @@ class GoApproachPublisher(Node):
             altitude = round(10 + math.sin(angle), 3)
 
             target_look_at = [0, 0]
-            direction_look = np.array(target_look_at) - np.array([self.position_actuelle_x, self.position_actuelle_y])
+            #direction_look = np.array(target_look_at) - np.array([self.position_actuelle_x, self.position_actuelle_y]) # peut pas être implémenté actuellement car target définit initiallement
+            direction_look = np.array(target_look_at) - np.array([x, y]) 
             angle_dir_look = math.atan2(direction_look[1], direction_look[0])
             yaw = round(angle_dir_look, 3)
-            #yaw = round(angle+np.pi, 3) # à effacer
 
             targ = f"{x}, {y}, {altitude}, {yaw}"
             self.get_logger().info(f'New targ added : {targ} at index : {index}') # Pour vérif, peut être enlevé sinon

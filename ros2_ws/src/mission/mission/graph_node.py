@@ -59,7 +59,9 @@ class GraphNode(Node):
             self.current_target['x'] = float(parts[0])
             self.current_target['y'] = float(parts[1])
             self.current_target['z'] = float(parts[2])
-            self.current_target['yaw'] = ((float(parts[3]))*180/np.pi)+270  # conversion en degrés et ajustement de l'orientation yaw (Nord = 0°)
+            self.current_target["yaw"] = ((float(parts[3]))*180/np.pi)
+            #self.current_target['yaw'] = ((float(parts[3]))*180/np.pi)+270  # conversion en degrés et ajustement de l'orientation yaw (Nord = 0°)
+            
             #self.get_logger().info(f"Target received: {self.current_target}")
         except Exception as e:
             self.get_logger().error(f'Erreur de parsing du message target: {e}')
@@ -91,7 +93,17 @@ class GraphNode(Node):
         tar_x = self.current_target['x']
         tar_y = self.current_target['y']
         tar_z = self.current_target['z']
-        tar_yaw = round(self.current_target['yaw'], 4)
+
+        yaw = self.current_target['yaw']
+        yaw = yaw - 90 # décalage pour que 0° = Nord
+        yaw = 360 - yaw # conversion horaire -> antihoraire
+        while yaw < 0:
+            yaw += 360
+        while yaw > 360:
+            yaw -= 360
+        tar_yaw = round((yaw), 4)
+
+
         timestamp = round(time.time() - self.start_time, 2)
 
         row = {'pos_x': pos_x, 'pos_y': pos_y, 'pos_z': pos_z, 'pos_yaw': pos_yaw, 'tar_x': tar_x, 'tar_y': tar_y, 'tar_z': tar_z, 'tar_yaw': tar_yaw, 'time': timestamp}
