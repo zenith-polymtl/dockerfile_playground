@@ -14,11 +14,11 @@
             <h2>System Control</h2>
             <div class="button-group">
                 
-                <button class="battery-btn" onclick="sendCommand('battery_changed')">Battery Changed</button>
+                <button class="battery-btn" onclick="sendCommand('/battery_changed')">Battery Changed</button>
                 
-                <button class="abort-btn" onclick="sendCommand('abort')">EMERGENCY ABORT</button>
+                <button class="abort-btn" onclick="sendCommand('/abort_brake')">EMERGENCY ABORT</button>
                 
-                <button class="arm-btn" onclick="sendCommand('confirm_arming')">ARM & AUTHORIZE TAKEOFF</button>
+                <button class="arm-btn" onclick="sendCommand('/confirm_arming')">ARM & AUTHORIZE TAKEOFF</button>
                 
             </div>
         </div>
@@ -29,9 +29,9 @@
                 <h2>Vision Control</h2>
                 <div class="button-group">
                     
-                    <button onclick="sendCommand('vision_source')">Source Search</button>
+                    <button onclick="sendCommand('/go_vision')">Source Search</button>
                     
-                    <button onclick="sendCommand('vision_bucket')">Bucket Search</button>
+                    <button onclick="sendCommand('/go_vision')">Bucket Search</button>
                     
                 </div>
                 
@@ -42,9 +42,9 @@
                 <h2>Approach Mode</h2>
                 <div class="button-group">
                     
-                    <button onclick="sendCommand('manual_approach')">Manual Mode</button>
+                    <button onclick="sendCommand('/approach_target_graph')">Manual Mode</button>
                     
-                    <button onclick="sendCommand('auto_approach')">Auto Mode</button>
+                    <button onclick="sendCommand('/approach_target_graph')">Auto Mode</button>
                     
                 </div>
                 
@@ -55,9 +55,9 @@
                 <h2>Winch Control</h2>
                 <div class="button-group">
                     
-                    <button onclick="sendCommand('winch_down')">Winch Down</button>
+                    <button onclick="sendCommand('/go_winch')">Winch Down</button>
                     
-                    <button onclick="sendCommand('winch_up')">Winch Up</button>
+                    <button onclick="sendCommand('/go_winch')">Winch Up</button>
                     
                 </div>
                 
@@ -68,13 +68,13 @@
                 <h2>Water System</h2>
                 <div class="button-group">
                     
-                    <button onclick="sendCommand('water_refill')">Refill Water</button>
+                    <button onclick="sendCommand('/go_bucket_valve')">Refill Water</button>
                     
-                    <button onclick="sendCommand('water_release')">Release Water</button>
+                    <button onclick="sendCommand('/go_bucket_valve')">Release Water</button>
                     
-                    <button onclick="sendCommand('valve_open')">Open Valve</button>
+                    <button onclick="sendCommand('/valve_state')">Open Valve</button>
                     
-                    <button onclick="sendCommand('valve_close')">Close Valve</button>
+                    <button onclick="sendCommand('/valve_state')">Close Valve</button>
                     
                 </div>
                 
@@ -82,7 +82,7 @@
                     
                     <label>Buckets:</label>
                     <input type="number" id="bucketNumber" min="1" value="1">
-                    <button onclick="setAmount('bucketNumber', 'set_buckets')" style="min-width: 80px;">Set</button>
+                    <button onclick="setAmount('bucketNumber', '/bucket_number')" style="min-width: 80px;">Set</button>
                     
                 </div>
                 

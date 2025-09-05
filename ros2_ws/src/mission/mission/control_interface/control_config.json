@@ -5,17 +5,26 @@
       {
         "text": "Battery Changed",
         "class": "battery-btn",
-        "command": "battery_changed"
+        "command": "/battery_changed",
+        "topicType": "String",
+        "qosProfile": false,
+        "data": "CHANGED"
       },
       {
         "text": "EMERGENCY ABORT",
         "class": "abort-btn",
-        "command": "abort"
+        "command": "/abort_brake",
+        "topicType": "String",
+        "qosProfile": true,
+        "data": "a.b."
       },
       {
         "text": "ARM & AUTHORIZE TAKEOFF",
         "class": "arm-btn",
-        "command": "confirm_arming"
+        "topicType": "String",
+        "qosProfile": false,
+        "command": "/confirm_arming",
+        "data": "ARM"
       }
     ]
   },
@@ -25,11 +34,17 @@
       "buttons": [
         {
           "text": "Source Search",
-          "command": "vision_source"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/go_vision",
+          "data": "SOURCE"
         },
         {
           "text": "Bucket Search",
-          "command": "vision_bucket"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/go_vision",
+          "data": "BUCKET"
         }
       ]
     },
@@ -38,11 +53,17 @@
       "buttons": [
         {
           "text": "Manual Mode",
-          "command": "manual_approach"
+          "command": "/approach_target_graph",
+          "topicType": "String",
+          "qosProfile": true,
+          "data": "MANUAL"
         },
         {
           "text": "Auto Mode",
-          "command": "auto_approach"
+          "command": "/approach_target_graph",
+          "topicType": "String",
+          "qosProfile": true,
+          "data": "GO!"
         }
       ]
     },
@@ -51,11 +72,17 @@
       "buttons": [
         {
           "text": "Winch Down",
-          "command": "winch_down"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/go_winch",
+          "data": "DOWN!"
         },
         {
           "text": "Winch Up",
-          "command": "winch_up"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/go_winch",
+          "data": "UP"
         }
       ]
     },
@@ -64,26 +91,40 @@
       "buttons": [
         {
           "text": "Refill Water",
-          "command": "water_refill"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/go_bucket_valve",
+          "data": "REFILL" 
         },
         {
           "text": "Release Water",
-          "command": "water_release"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/go_bucket_valve",
+          "data": "RELEASE" 
         },
         {
           "text": "Open Valve",
-          "command": "valve_open"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/valve_state",
+          "data": "OPEN" 
         },
         {
           "text": "Close Valve",
-          "command": "valve_close"
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/valve_state",
+          "data": "CLOSE" 
         }
       ],
       "inputs": [
         {
           "type": "number",
           "id": "bucketNumber",
-          "command": "set_buckets",
+          "command": "/bucket_number",
+          "topicType": "Int32",
+          "qosProfile": false,
           "min": "1",
           "value": "1",
           "label": "Buckets:"
@@ -96,11 +137,17 @@
         {
           "id": "waterQty",
           "label": "Water Quantity",
+          "command": "/water_qty",
+          "topicType": "Int32",
+          "qosProfile": false,
           "value": "0 mL"
         },
         {
           "id": "torque",
           "label": "Motor Torque",
+          "command": "/torque",
+          "topicType": "Float32",
+          "qosProfile": false,
           "value": "0.00 Nm"
         }
       ]
