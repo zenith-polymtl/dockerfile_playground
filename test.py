@@ -1,3 +1,6 @@
 from zenmav.core import Zenmav
+import time
+drone = Zenmav()
 
-drone = Zenmav(ip = '/dev/serial0', baud=115200)
+
+drone.set_mode('BRAKE')
