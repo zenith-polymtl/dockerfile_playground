@@ -11,7 +11,8 @@ def get_latest_csv(folder_path="ros2_ws/data"):
     return latest_file
 
 # 📦 Charger les données
-csv_path = get_latest_csv()
+csv_path = get_latest_csv() # Choisir entre les deux lignes selon le csv à analyser voulu
+#csv_path = "ros2_ws/graph/pos_xyz_20250803_220720.csv"
 df = pd.read_csv(csv_path)
 csv_filename = os.path.basename(csv_path)
 timestamp = os.path.getmtime(csv_path)
@@ -21,25 +22,35 @@ dt_string = datetime.fromtimestamp(timestamp).strftime("%Y%m%d_%H%M%S")
 # 🕰️ Option de filtrage temporel
 start_time = float(input("⏱️ Entrez le temps de départ (ex: 10.0) : "))
 end_time = float(input("⏱️ Entrez le temps de fin (ex: 42.0) : "))
+axis_wanted = input("Entrez les axes à analyser (ex: x ou yz ou zl ou ENTER pour xyzl) : ") or "xyzl"
 
 # 🧼 Filtrer le DataFrame selon le temps
 df_filtered = df[(df["time"] >= start_time) & (df["time"] <= end_time)]
 
 # 🎨 Créer les graphiques
-fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-axes_titles = ["x", "y", "z"]
-pos_cols = ["pos_x", "pos_y", "pos_z"]
-tar_cols = ["tar_x", "tar_y", "tar_z"]
+nbr_graph = len(axis_wanted)
+fig, axes = plt.subplots(nrows=int(nbr_graph), ncols=1, figsize=(10, 8), sharex=True)
 
-for i in range(3):
+if nbr_graph == 1:
+    axes = [axes]  # Assurer que axes est une liste même pour un seul graphique
+
+axes_titles = list(axis_wanted)
+pos_cols, tar_cols = [], []
+for i in range(nbr_graph):
+    if axes_titles[i] == "l":
+        axes_titles[i] = "yaw"
+    pos_cols.append(f"pos_{axes_titles[i]}")
+    tar_cols.append(f"tar_{axes_titles[i]}")
+
+for i in range(nbr_graph):
     axes[i].plot(df_filtered["time"], df_filtered[pos_cols[i]], label=f"Position {axes_titles[i]}", color="blue")
     axes[i].plot(df_filtered["time"], df_filtered[tar_cols[i]], label=f"Cible {axes_titles[i]}", color="red", linestyle="--")
     axes[i].set_ylabel(f"{axes_titles[i]}")
     axes[i].legend()
     axes[i].grid(True)
 
-axes[2].set_xlabel("Temps (s)")
-fig.suptitle("Comparaison Position vs Cible dans les axes x, y, z")
+axes[nbr_graph-1].set_xlabel("Temps (s)")
+fig.suptitle("Position vs Cible")
 
 plt.tight_layout()
 
@@ -47,5 +58,5 @@ plt.tight_layout()
 os.makedirs("ros2_ws/graph", exist_ok=True)
 
 # 💾 Sauvegarder le graphique
-plt.savefig(f"ros2_ws/graph/graph_xyz_{dt_string}.png")
-print(f"✅ Graphique sauvegardé : graph_xyz_{dt_string}.png")
+plt.savefig(f"ros2_ws/graph/graph_{axis_wanted}_{dt_string}.png")
+print(f"✅ Graphique sauvegardé : graph_{axis_wanted}_{dt_string}.png")

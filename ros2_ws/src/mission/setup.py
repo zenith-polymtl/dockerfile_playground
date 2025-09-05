@@ -185,6 +185,7 @@ setup(
         'console_scripts': [
             'state = mission.state_node_min:main',
             'approach = mission.approach_node:main',
+            'approach_raw = mission.approach_node_raw:main',
             'vision = mission.machine_vision:main',
             'control = mission.web_manual_control_node:main',
             'water = mission.water_measure:main',
