@@ -47,25 +47,13 @@ function sendCommand(command) {
     ws.send(JSON.stringify({ type: 'command', command: command }));
 }
 
-function setBuckets() {
-    const bucketNumber = document.getElementById('bucketNumber').value;
-    if (bucketNumber) {
+function setAmount(id, command) {
+    const amount = document.getElementById(id).value;
+    if (amount) {
         ws.send(JSON.stringify({ 
             type: 'command', 
-            command: 'set_buckets',
-            data: bucketNumber 
+            command,
+            data: amount 
         }));
-    }
-}
-
-function confirmAbort() {
-    if (confirm('Are you sure you want to ABORT?')) {
-        sendCommand('abort');
-    }
-}
-
-function confirmArming() {
-    if (confirm('Confirm ARMED, GUIDED, and AUTHORISE TAKEOFF?')) {
-        sendCommand('confirm_arming');
     }
 }
