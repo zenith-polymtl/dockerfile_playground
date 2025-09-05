@@ -136,39 +136,6 @@ class ApproachNode(Node):
         self.drone_pose = msg.pose.position
 
 
-    def control_loop(self):
-        if not self.approach_active or self.drone_pose is None or self.target_pose is None:
-            return
-
-        now = self.get_clock().now()
-        dt = (now - self.last_time).nanoseconds / 1e9  # Convert nanoseconds to seconds
-        self.last_time = now
-
-        error_x = self.target_pose.x - self.drone_pose.x
-        error_y = self.target_pose.y - self.drone_pose.y
-        error_z = self.target_pose.z - self.drone_pose.z
-
-        vel_x = self.pid_x.compute(error_x, dt)
-        vel_y = self.pid_y.compute(error_y, dt)
-        vel_z = self.pid_z.compute(error_z, dt)
-        
-        max_output = self.pid_x.max_output
-        vel_x, vel_y = self.Failsafe_max_vel(vel_x,vel_y, max_output)
-
-        twist = TwistStamped()
-        twist.twist.linear.x = vel_x
-        twist.twist.linear.y = vel_y
-        twist.twist.linear.z = vel_z
-
-        self.publisher_vel.publish(twist)
-
-        current_time = time.time()
-        if current_time - self.last_log_time_control >= 0.5:
-            self.get_logger().info(f"PID velocities - X: {vel_x:.4f}, Y: {vel_y:.4f}, Z: {vel_z:.4f} at {current_time}")
-            self.last_log_time_control = current_time
-
-
-
 def main(args=None):
     rclpy.init(args=args)
     node = ApproachNode()
