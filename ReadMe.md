@@ -67,6 +67,15 @@ docker exec -it dockerfile_playground-zenith-1 bash
 ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}" 
 # avant de lancer certains echo par exemple 
 ```
+"""
+ros2 topic pub --once /estimated_target_location geometry_msgs/msg/PoseStamped '{header: {frame_id: map}, pose: {position: {x: 0.0, y: 0.0, z: 0.5}, orientation: {x: 0.0, y: 0.0, z: 0.0, w:
+ 1.0}}}'
+ """
+"""
+ros2 topic pub --once /goal_pose_polar custom_interfaces/msg/TargetPosePolar \
+"{r: 4.0, z: 5.0, theta: -1.2, relative: true, v_theta: 0.5, r_percent: 1.0}"
+"""
+
 
 ### Lancement de Nœuds ROS2
 
