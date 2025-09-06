@@ -188,8 +188,17 @@ ii. Take off when armed by pilot
 
 ## 9. Planning
 
---> yaw non harcode, vérif yaw convention for whole pipe, (l.62 de graph_node et targets circle de target_publisher_node)
+### Control
+- yaw non harcode, vérif yaw convention for whole pipe, (l.62 de graph_node et targets circle de target_publisher_node)
+    - Fait?
 
---> control with pos/vel/acc for smoothness
+- control with pos/vel/acc for smoothness 
 
---> Lire doc caméra pour inté
+### Inté cam
+- Lire doc caméra pour inté
+
+### Baselink
+- Tester for vérif!
+- Modif graph crea for baselink
+- Add PID for yaw_b pour pas que ce soit trop brusque
+
