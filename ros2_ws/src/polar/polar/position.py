@@ -60,9 +60,10 @@ class ApproachNode(Node):
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
-        self.pid_r = PIDController(kp=2.0, ki=0.05, kd=1.0, max_i=0.5)
+        self.pid_r = PIDController(kp=2.0, ki=0.05, kd=1.2, max_i=0.5)
         self.pid_theta = PIDController(kp=0.2, ki=0, kd=0.08)
         self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
 
         self.estimated_target_pose = None
         self.drone_pose = None
@@ -80,7 +81,6 @@ class ApproachNode(Node):
 
 
     def compute_estimated_state(self):
-        self.get_logger().info(f"Computing states")
         
 
         if self.estimated_target_pose is None:
@@ -96,17 +96,12 @@ class ApproachNode(Node):
 
         distance_from_target = np.sqrt(delta_x**2 + delta_y**2)
 
-
         self.distance_from_target = distance_from_target
 
         if self.target_pose.relative:
-            if self.first:
-                self.r_ref = distance_from_target
-                self.first = False
-            else:
-                if self.r_error < 0.1:
-                    self.r_ref *= self.target_pose.r_percent
-            self.r_error = distance_from_target - self.r_ref #r+ is radial in
+            self.r_var = self.distance_from_target - self.last_distance_from_target if not self.first else 0.0
+            self.last_distance_from_target = self.distance_from_target
+            self.r_error = distance_from_target*(1-self.target_pose.v_r) #r+ is radial in
             self.v_theta = self.target_pose.v_theta
         else:
             self.r_error = distance_from_target - self.target_pose.r #r+ is radial in
@@ -116,18 +111,28 @@ class ApproachNode(Node):
 
         self.unit_vector_to_target = np.array([delta_x, delta_y]) / distance_from_target if distance_from_target != 0 else np.array([0.0, 0.0])
 
+        if self.first: 
+            self.first = False
+            self.last_distance_from_target = distance_from_target
+            self.r_var = 0.0
+
         self.compute_commands()
 
     def compute_commands(self):
-
-        self.get_logger().info(f"Compting commands")
         
         current_time = time.time()
         self.dt = current_time - self.last_time
         self.last_time = current_time
 
+        if self.target_pose.relative:
+            r_dot = self.r_var / self.dt
+            r_dot_error = r_dot - self.target_pose.v_r
+            self.get_logger().info(f'R : {self.distance_from_target}, r_dot : {r_dot}')
+            self.vel_r = self.pid_r_dot.compute(r_dot_error, self.dt)
+        else:
+            self.vel_r = self.pid_r.compute(self.r_error, self.dt)
+
         self.vel_z = self.pid_z.compute(self.z_error, self.dt)
-        self.vel_r = self.pid_r.compute(self.r_error, self.dt)
 
         #If not relative control, compute theta velocity using pid
         if not self.target_pose.relative:
@@ -137,6 +142,8 @@ class ApproachNode(Node):
             #Computed theta velocity using pid
             self.v_theta = self.pid_theta.compute(theta_distance, self.dt)
 
+        if self.v_theta**2/self.distance_from_target > 1.0:
+            self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
 
         # Decompose velocities into x and y components
         #Radial speed
@@ -181,7 +188,7 @@ class ApproachNode(Node):
 
     def goal_pose_callback(self, msg):
         self.target_pose = msg
-        self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, r_percent={self.target_pose.r_percent}, relative={self.target_pose.relative}")
+        self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.target_pose.v_r}, relative={self.target_pose.relative}")
         self.approach_active = True
 
     def estimation_callback(self, msg):
