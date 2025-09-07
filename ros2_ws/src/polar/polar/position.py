@@ -9,19 +9,22 @@ import time
 from custom_interfaces.msg import TargetPosePolar
 
 class PIDController():
-    def __init__(self, kp, ki, kd, max_output = 3.0):  # 3.0 m/s norm is max output for vel in xy directions vectorially
+    def __init__(self, kp, ki, kd, max_output = 3.0, max_i = 1):  # 3.0 m/s norm is max output for vel in xy directions vectorially
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.max_output = max_output
         self.prev_error = 0.0
         self.integral = 0.0
+        self.max_i = max_i
 
     def compute(self, error, dt):
         if dt <= 0:
             return 0.0
         
         self.integral += error * dt
+        # Anti-windup for integral term
+        self.integral = max(min(self.integral, self.max_i), -self.max_i)
         derivative = (error - self.prev_error) / dt
         output = self.kp * error + self.ki * self.integral + self.kd * derivative
         self.prev_error = error
@@ -57,9 +60,10 @@ class ApproachNode(Node):
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
-        self.pid_r = PIDController(kp=0.6, ki=0, kd=0.3)
-        self.pid_theta = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_r = PIDController(kp=2.0, ki=0.05, kd=1.2, max_i=0.5)
+        self.pid_theta = PIDController(kp=0.2, ki=0, kd=0.08)
         self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
 
         self.estimated_target_pose = None
         self.drone_pose = None
@@ -73,17 +77,10 @@ class ApproachNode(Node):
         self.first = True
         self.r_ref = None
 
-
-        
-
         self.get_logger().info("Polar positioning node started")
-
-    def ref_timer_callback(self):
-        self.r_ref *= self.target_pose.r_percent
 
 
     def compute_estimated_state(self):
-        self.get_logger().info(f"Computing states")
         
 
         if self.estimated_target_pose is None:
@@ -98,55 +95,90 @@ class ApproachNode(Node):
         self.z_error = delta_z + float(self.target_pose.z)
 
         distance_from_target = np.sqrt(delta_x**2 + delta_y**2)
-        if self.first:
-            self.first = False
-            self.r_ref = distance_from_target
-            self.ref_time = self.create_timer(0.5, self.ref_timer_callback)
 
         self.distance_from_target = distance_from_target
 
-        
         if self.target_pose.relative:
-            if self.r_ref is None:
-                return
-            self.r_error = distance_from_target - self.r_ref #r+ is radial in
+            self.r_var = self.distance_from_target - self.last_distance_from_target if not self.first else 0.0
+            self.last_distance_from_target = self.distance_from_target
+            self.r_error = distance_from_target*(1-self.target_pose.v_r) #r+ is radial in
             self.v_theta = self.target_pose.v_theta
         else:
             self.r_error = distance_from_target - self.target_pose.r #r+ is radial in
-            self.theta_error = np.arctan2(-delta_y, -delta_x) - self.target_pose.theta
+            def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
+            self.theta_error = wrap_pi(np.arctan2(-delta_y, -delta_x) - self.target_pose.theta)
             self.v_theta = None
 
         self.unit_vector_to_target = np.array([delta_x, delta_y]) / distance_from_target if distance_from_target != 0 else np.array([0.0, 0.0])
 
+        if self.first: 
+            self.first = False
+            self.last_distance_from_target = distance_from_target
+            self.r_var = 0.0
+
         self.compute_commands()
 
     def compute_commands(self):
-
-        self.get_logger().info(f"Compting commands")
         
         current_time = time.time()
-        dt = current_time - self.last_time
+        self.dt = current_time - self.last_time
         self.last_time = current_time
 
-        self.vel_z = self.pid_z.compute(self.z_error, dt)
-        self.vel_r = self.pid_r.compute(self.r_error, dt)
+        if self.target_pose.relative:
+            r_dot = self.r_var / self.dt
+            r_dot_error = r_dot - self.target_pose.v_r
+            self.get_logger().info(f'R : {self.distance_from_target}, r_dot : {r_dot}')
+            self.vel_r = self.pid_r_dot.compute(r_dot_error, self.dt)
+        else:
+            self.vel_r = self.pid_r.compute(self.r_error, self.dt)
+
+        self.vel_z = self.pid_z.compute(self.z_error, self.dt)
 
         #If not relative control, compute theta velocity using pid
         if not self.target_pose.relative:
-            theta_distance = self.theta_error*self.r_error
-            self.v_theta = self.pid_theta.compute(theta_distance, dt)
+            #Compute arc distance to target theta
+            theta_distance = self.theta_error*self.distance_from_target
 
+            #Computed theta velocity using pid
+            self.v_theta = self.pid_theta.compute(theta_distance, self.dt)
 
+        if self.v_theta**2/self.distance_from_target > 1.0:
+            self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
 
+        # Decompose velocities into x and y components
+        #Radial speed
         self.vel_rx, self.vel_ry = self.vel_r*self.unit_vector_to_target
+
+        #Tangential speed -> Ideal trajectory for continuous motion, not for discrete control
         self.vel_thetax, self.vel_thetay = self.v_theta*np.array([-self.unit_vector_to_target[1], self.unit_vector_to_target[0]])
 
-        self.vel_x = self.vel_rx + self.vel_thetax
-        self.vel_y = self.vel_ry + self.vel_thetay
+        #Bend adjustment for discrete control
+        omega = self.v_theta / self.distance_from_target          # [rad/s]
+        arc_angle = omega * self.dt                          # [rad]
+
+        #Math, just trigonometry and algeabra
+        
+        half = 0.5 * arc_angle
+        phi = -half #Made to point inwards
+        sin_half = np.sin(half)
+        # Chord speed
+        #More stable formula for small angles than computing from distance
+        v_new = (2.0 * self.distance_from_target * sin_half) / self.dt if self.dt > 0.0 else 0.0
+
+        #Rotate vectors by phi and scale to circle speed (shorter distance in same time)
+        self.adjusted_vel_theta_x, self.adjusted_vel_theta_y = v_new/self.v_theta * np.array([
+            self.vel_thetax*np.cos(phi) - self.vel_thetay*np.sin(phi),
+            self.vel_thetax*np.sin(phi) + self.vel_thetay*np.cos(phi)
+        ]) if self.v_theta != 0 else (0.0, 0.0)
+
+        self.vel_x = self.vel_rx + self.adjusted_vel_theta_x
+        self.vel_y = self.vel_ry + self.adjusted_vel_theta_y
         self.send_commands()
 
     def send_commands(self):
         twist = TwistStamped()
+        twist.header.stamp = self.get_clock().now().to_msg()
+        twist.header.frame_id = "map"   # or "odom" – match your /mavros/local_position/pose
         twist.twist.linear.x = self.vel_x
         twist.twist.linear.y = self.vel_y
         twist.twist.linear.z = self.vel_z
@@ -156,7 +188,7 @@ class ApproachNode(Node):
 
     def goal_pose_callback(self, msg):
         self.target_pose = msg
-        self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, r_percent={self.target_pose.r_percent}, relative={self.target_pose.relative}")
+        self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.target_pose.v_r}, relative={self.target_pose.relative}")
         self.approach_active = True
 
     def estimation_callback(self, msg):
