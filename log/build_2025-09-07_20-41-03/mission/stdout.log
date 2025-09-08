@@ -1,0 +1,97 @@
+running egg_info
+creating ../../../build/mission/mission.egg-info
+writing ../../../build/mission/mission.egg-info/PKG-INFO
+writing dependency_links to ../../../build/mission/mission.egg-info/dependency_links.txt
+writing entry points to ../../../build/mission/mission.egg-info/entry_points.txt
+writing requirements to ../../../build/mission/mission.egg-info/requires.txt
+writing top-level names to ../../../build/mission/mission.egg-info/top_level.txt
+writing manifest file '../../../build/mission/mission.egg-info/SOURCES.txt'
+reading manifest file '../../../build/mission/mission.egg-info/SOURCES.txt'
+writing manifest file '../../../build/mission/mission.egg-info/SOURCES.txt'
+running build
+running build_py
+[DEBUG] Generating interface from: /home/colin/dockerfile_playground/ros2_ws/src/mission/mission/control_interface/control_config.json
+[DEBUG] Successfully generated: /home/colin/dockerfile_playground/ros2_ws/src/mission/mission/control_interface/index.html
+creating /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/abort_brake_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/web_manual_control_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/drop.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/machine_vision.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/state_node_advanced.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/approach_node_raw.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/other_machine_vision.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/__init__.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/cam2.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/graph_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/approach_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/valve_control.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/target_publisher_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+copying mission/cam_pub.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+creating /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface
+copying mission/control_interface/index.html -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface
+copying mission/control_interface/control_config.json -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface
+creating /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static
+copying mission/control_interface/static/style.css -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static
+copying mission/control_interface/static/index.js -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static
+running install
+running install_lib
+creating /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/abort_brake_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/web_manual_control_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/drop.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/machine_vision.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/state_node_advanced.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/approach_node_raw.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/other_machine_vision.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/__init__.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+creating /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/index.html -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface
+creating /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface/static
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static/style.css -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface/static
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static/index.js -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface/static
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/control_config.json -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/cam2.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/graph_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/approach_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/valve_control.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/target_publisher_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/cam_pub.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/abort_brake_node.py to abort_brake_node.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/web_manual_control_node.py to web_manual_control_node.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/drop.py to drop.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/machine_vision.py to machine_vision.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/state_node_advanced.py to state_node_advanced.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/approach_node_raw.py to approach_node_raw.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/other_machine_vision.py to other_machine_vision.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/cam2.py to cam2.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/graph_node.py to graph_node.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/approach_node.py to approach_node.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/valve_control.py to valve_control.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/target_publisher_node.py to target_publisher_node.cpython-310.pyc
+byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/cam_pub.py to cam_pub.cpython-310.pyc
+running install_data
+creating /home/colin/dockerfile_playground/install/mission/share/ament_index/resource_index/packages
+copying resource/mission -> /home/colin/dockerfile_playground/install/mission/share/ament_index/resource_index/packages
+copying package.xml -> /home/colin/dockerfile_playground/install/mission/share/mission
+creating /home/colin/dockerfile_playground/install/mission/share/mission/msg
+creating /home/colin/dockerfile_playground/install/mission/share/mission/control_interface
+copying mission/control_interface/index.html -> /home/colin/dockerfile_playground/install/mission/share/mission/control_interface
+creating /home/colin/dockerfile_playground/install/mission/share/mission/control_interface/static
+copying mission/control_interface/static/style.css -> /home/colin/dockerfile_playground/install/mission/share/mission/control_interface/static
+copying mission/control_interface/static/index.js -> /home/colin/dockerfile_playground/install/mission/share/mission/control_interface/static
+running install_egg_info
+Copying ../../../build/mission/mission.egg-info to /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission-0.0.0-py3.10.egg-info
+running install_scripts
+Installing abort script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing approach script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing approach_raw script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing camera script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing control script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing graph script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing state script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing targets script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing valve script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing vision script to /home/colin/dockerfile_playground/install/mission/lib/mission
+Installing water script to /home/colin/dockerfile_playground/install/mission/lib/mission
+writing list of installed files to '/home/colin/dockerfile_playground/build/mission/install.log'

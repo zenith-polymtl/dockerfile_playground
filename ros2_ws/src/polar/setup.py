@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'position = polar.position:main',
             'teleop = polar.teleop:main',
+            'look_inwards = polar.look_target:main',
         ],
     },
 )

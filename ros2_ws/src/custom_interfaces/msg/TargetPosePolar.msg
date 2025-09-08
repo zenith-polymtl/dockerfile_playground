@@ -5,3 +5,4 @@ float32 z
 bool relative
 float32 v_r
 float32 v_theta
+float32 v_z

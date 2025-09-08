@@ -1,0 +1,34 @@
+[1.529s] Invoking command in '/home/colin/dockerfile_playground/ros2_ws/src/polar': AMENT_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces LD_LIBRARY_PATH=/home/colin/dockerfile_playground/install/custom_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/colin/dockerfile_playground/build/polar/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages:/home/colin/dockerfile_playground/install/custom_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/polar build --build-base /home/colin/dockerfile_playground/build/polar/build install --record /home/colin/dockerfile_playground/build/polar/install.log --single-version-externally-managed install_data
+[1.713s] /home/colin/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:289: UserWarning: Unknown distribution option: 'tests_require'
+[1.713s]   warnings.warn(msg)
+[1.861s] running egg_info
+[1.880s] writing ../../../build/polar/polar.egg-info/PKG-INFO
+[1.881s] writing dependency_links to ../../../build/polar/polar.egg-info/dependency_links.txt
+[1.881s] writing entry points to ../../../build/polar/polar.egg-info/entry_points.txt
+[1.882s] writing requirements to ../../../build/polar/polar.egg-info/requires.txt
+[1.882s] writing top-level names to ../../../build/polar/polar.egg-info/top_level.txt
+[1.930s] reading manifest file '../../../build/polar/polar.egg-info/SOURCES.txt'
+[1.931s] writing manifest file '../../../build/polar/polar.egg-info/SOURCES.txt'
+[1.931s] running build
+[1.932s] running build_py
+[1.932s] copying polar/target_pose_estimator.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+[1.932s] copying polar/position.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+[1.932s] copying polar/teleop.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+[1.932s] copying polar/__init__.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+[1.933s] copying polar/look_target.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+[1.933s] running install
+[1.938s] running install_lib
+[1.958s] copying /home/colin/dockerfile_playground/build/polar/build/lib/polar/look_target.py -> /home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar
+[1.959s] byte-compiling /home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar/look_target.py to look_target.cpython-310.pyc
+[1.959s] running install_data
+[1.960s] copying resource/polar -> /home/colin/dockerfile_playground/install/polar/share/ament_index/resource_index/packages
+[1.960s] copying package.xml -> /home/colin/dockerfile_playground/install/polar/share/polar
+[1.960s] running install_egg_info
+[1.982s] removing '/home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar-0.0.0-py3.10.egg-info' (and everything under it)
+[1.982s] Copying ../../../build/polar/polar.egg-info to /home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar-0.0.0-py3.10.egg-info
+[1.985s] running install_scripts
+[2.027s] Installing look_inwards script to /home/colin/dockerfile_playground/install/polar/lib/polar
+[2.027s] Installing position script to /home/colin/dockerfile_playground/install/polar/lib/polar
+[2.027s] Installing teleop script to /home/colin/dockerfile_playground/install/polar/lib/polar
+[2.028s] writing list of installed files to '/home/colin/dockerfile_playground/build/polar/install.log'
+[2.057s] Invoked command in '/home/colin/dockerfile_playground/ros2_ws/src/polar' returned '0': AMENT_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces LD_LIBRARY_PATH=/home/colin/dockerfile_playground/install/custom_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/colin/dockerfile_playground/build/polar/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages:/home/colin/dockerfile_playground/install/custom_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/polar build --build-base /home/colin/dockerfile_playground/build/polar/build install --record /home/colin/dockerfile_playground/build/polar/install.log --single-version-externally-managed install_data

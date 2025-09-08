@@ -2,11 +2,12 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped, PoseStamped
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import numpy as np
 import time
 from custom_interfaces.msg import TargetPosePolar
+from mavros_msgs.msg import PositionTarget  
 
 class PIDController():
     def __init__(self, kp, ki, kd, max_output = 3.0, max_i = 1):  # 3.0 m/s norm is max output for vel in xy directions vectorially
@@ -50,7 +51,7 @@ class ApproachNode(Node):
             depth=8
         )
 
-        self.publisher_vel = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', qos_profile)
+        self.publisher_raw = self.create_publisher(PositionTarget, '/mavros/setpoint_raw/local', qos_profile)  
 
         self.drone_position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.drone_pose_callback, qos_profile_BE)
         self.pose_goal_sub = self.create_subscription(TargetPosePolar, '/goal_pose_polar', self.goal_pose_callback, qos_profile)
@@ -61,7 +62,7 @@ class ApproachNode(Node):
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
         self.pid_r = PIDController(kp=3.0, ki=0.2, kd=1.8, max_i=1.0)
-        self.pid_theta = PIDController(kp=0.2, ki=0, kd=0.08)
+        self.pid_theta = PIDController(kp=0.6, ki=0, kd=0.24)
         self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
 
@@ -113,7 +114,7 @@ class ApproachNode(Node):
         else:
             self.r_error = distance_from_target - self.target_pose.r #r+ is radial in
             def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
-            self.theta_error = wrap_pi(np.arctan2(-delta_x, -delta_y) - self.target_pose.theta)
+            self.theta_error = wrap_pi(np.arctan2(-delta_y, -delta_x) - self.target_pose.theta)
             self.v_theta = None
 
         self.unit_vector_to_target = np.array([delta_x, delta_y]) / distance_from_target if distance_from_target != 0 else np.array([0.0, 0.0])
@@ -210,15 +211,37 @@ class ApproachNode(Node):
         self.vel_y = self.vel_ry + self.adjusted_vel_theta_y
         self.send_commands()
 
-    def send_commands(self):
-        twist = TwistStamped()
-        twist.header.stamp = self.get_clock().now().to_msg()
-        twist.header.frame_id = "map"   # or "odom" – match your /mavros/local_position/pose
-        twist.twist.linear.x = self.vel_x
-        twist.twist.linear.y = self.vel_y
-        twist.twist.linear.z = self.vel_z
-
-        self.publisher_vel.publish(twist)
+    def send_commands(self):  
+        # Create PositionTarget message for setpoint_raw  
+        target = PositionTarget()  
+        target.header.stamp = self.get_clock().now().to_msg()  
+        target.header.frame_id = "map"  
+        target.coordinate_frame = PositionTarget.FRAME_LOCAL_NED  
+          
+        # Type mask to ignore position and acceleration, use only velocity and yaw  
+        target.type_mask = (  
+            PositionTarget.IGNORE_PX |  
+            PositionTarget.IGNORE_PY |  
+            PositionTarget.IGNORE_PZ |  
+            PositionTarget.IGNORE_AFX |  
+            PositionTarget.IGNORE_AFY |  
+            PositionTarget.IGNORE_AFZ |  
+            PositionTarget.IGNORE_YAW_RATE  # We want to control yaw angle, not yaw rate  
+        )  
+          
+        # Set velocity components  
+        target.velocity.x = self.vel_x  
+        target.velocity.y = self.vel_y  
+        target.velocity.z = self.vel_z  
+          
+        # Set yaw angle (convert from degrees to radians)  
+        angle_towards_target_rad = np.arctan2(  
+            self.estimated_target_pose.y - self.drone_pose.y,
+            self.estimated_target_pose.x - self.drone_pose.x  
+        )  
+        target.yaw = angle_towards_target_rad  
+          
+        self.publisher_raw.publish(target)
         #self.get_logger().info(f"Published velocities: vx={self.vel_x:.2f}, vy={self.vel_y:.2f}, vz={self.vel_z:.2f}")
 
     def goal_pose_callback(self, msg):
