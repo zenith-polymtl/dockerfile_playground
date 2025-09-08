@@ -61,6 +61,7 @@ class ApproachNode(Node):
         self.publisher_raw = self.create_publisher(PositionTarget, '/mavros/setpoint_raw/local', qos_profile)  
 
         self.drone_position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.drone_pose_callback, qos_profile_BE)
+        self.drone_position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/velocity_local', self.drone_speed_callback, qos_profile_BE)
         self.pose_goal_sub = self.create_subscription(TargetPosePolar, '/goal_pose_polar', self.goal_pose_callback, qos_profile)
         self.estimated_target_sub = self.create_subscription(PoseStamped, '/estimated_target_location', self.estimation_callback, qos_profile)
         self.activation_sub = self.create_subscription(String, '/approach_activation', self.activation_callback, qos_profile)
@@ -138,7 +139,6 @@ class ApproachNode(Node):
             self.target_pose.v_theta = 0.0
             self.target_pose.v_z = 0.0
             self.get_logger().info("Controller Deactivated, stopping targets follow")
-
     
 
     def activation_callback(self, msg):
@@ -176,135 +176,55 @@ class ApproachNode(Node):
 
 
     def compute_estimated_state(self):
-        if not self.approach_active:
-            return None
+        if not getattr(self, "approach_active", False):
+            return
+
+        if self.estimated_target_pose is None or self.drone_pose is None:
+            return
+
+        # --- Relative geometry (target → drone) ---
+        delta_x = self.drone_pose.x - self.estimated_target_pose.x
+        delta_y = self.drone_pose.y - self.estimated_target_pose.y
+        distance_to_target = float(np.hypot(delta_x, delta_y))
+        distance_safe = max(distance_to_target, 0.2)  # avoid divide-by-zero
+
+        # --- Unit vectors in polar frame ---
+        radial_unit_vector = np.array([delta_x / distance_safe,
+                                    delta_y / distance_safe])  # points outward
+        tangential_unit_vector = np.array([-radial_unit_vector[1],
+                                            radial_unit_vector[0]])  # CCW tangent
+
+        # --- Measured planar velocity (from /mavros/local_position/velocity_local) ---
+        vel_x = getattr(self, "vel_x", 0.0)
+        vel_y = getattr(self, "vel_y", 0.0)
+
+        # --- Decompose velocity into radial/tangential components ---
+        radial_speed_measured = vel_x * radial_unit_vector[0] + vel_y * radial_unit_vector[1]
+        tangential_speed_measured = vel_x * tangential_unit_vector[0] + vel_y * tangential_unit_vector[1]
+
+        # --- Pilot commands (make sure they use the same sign convention) ---
+        radial_speed_command = getattr(self.target_speed, "v_r", 0.0)
+        tangential_speed_command = getattr(self.target_speed, "v_theta", 0.0)
+
+        # --- Tracking errors ---
+        radial_speed_error = radial_speed_measured - radial_speed_command
+        tangential_speed_error = tangential_speed_measured - tangential_speed_command
+
+        # --- Save state for controller use ---
+        self.distance_to_target = distance_to_target
+        self.radial_unit_vector = radial_unit_vector
+        self.tangential_unit_vector = tangential_unit_vector
+        self.radial_speed_measured = radial_speed_measured
+        self.tangential_speed_measured = tangential_speed_measured
+        self.radial_speed_error = radial_speed_error
+        self.tangential_speed_error = tangential_speed_error
+
         
-
-        if self.estimated_target_pose is None:
-            self.get_logger().info("No estimated target pose available")
-            return None
-
-        delta_x = self.estimated_target_pose.x - self.drone_pose.x
-        delta_y = self.estimated_target_pose.y - self.drone_pose.y
-        delta_z = self.estimated_target_pose.z - self.drone_pose.z
-
-
-        self.z_error = delta_z + float(self.target_pose.z)
-
-        distance_from_target = np.sqrt(delta_x**2 + delta_y**2)
-
-        self.distance_from_target = distance_from_target
-
-        if self.target_pose.relative:
-            self.r_var = self.distance_from_target - self.last_distance_from_target if not self.first else 0.0
-            self.last_distance_from_target = self.distance_from_target
-            self.r_error = distance_from_target*(1-self.target_pose.v_r) #r+ is radial in
-            self.v_theta = self.target_pose.v_theta
-        else:
-            self.r_error = distance_from_target - self.target_pose.r #r+ is radial in
-            def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
-            self.theta_error = wrap_pi(np.arctan2(-delta_y, -delta_x) - self.target_pose.theta)
-            self.v_theta = None
-
-        self.unit_vector_to_target = np.array([delta_x, delta_y]) / distance_from_target if distance_from_target != 0 else np.array([0.0, 0.0])
-
-        if self.first: 
-            self.first = False
-            self.last_distance_from_target = distance_from_target
-            self.r_var = 0.0
-
-        self.compute_commands()
 
     def compute_commands(self):
+        pass
         
-        current_time = time.time()
-        self.dt = current_time - self.last_time
-        self.last_time = current_time
-
-        if self.target_pose.relative:
-            #Compute last radial velocity, and apply pid on radial velocity error
-            if self.target_pose.v_theta < 0.1:
-                self.vel_r = -self.target_pose.v_r if self.target_pose.v_r is not None else 0.0
-            else:
-                r_dot = self.r_var / self.dt
-                r_dot_error =  r_dot - self.target_pose.v_r
-                self.get_logger().info(f'R : {self.distance_from_target}, r_dot : {r_dot}')
-                self.vel_r = self.pid_r_dot.compute(r_dot_error, self.dt)
-
-            self.vel_z = self.target_pose.v_z if self.target_pose.v_z is not None else 0.0
-        else:
-            self.vel_r = self.pid_r.compute(self.r_error, self.dt)
-
-            self.vel_z = self.pid_z.compute(self.z_error, self.dt)
-
-        #If not relative control, compute theta velocity using pid
-        if not self.target_pose.relative:
-            #Compute arc distance to target theta
-            theta_distance = self.theta_error*self.distance_from_target
-
-            #Computed theta velocity using pid
-            self.v_theta = self.pid_theta.compute(theta_distance, self.dt)
-
-        #Centrepedial acceleration limit
-        if self.v_theta**2/self.distance_from_target > 1.0:
-            self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
-
-        # ----- Radial deadband-hold (non-invasive override of vel_r) -----
-        # Detect relative mode rising edge: False -> True
-        if (self.prev_relative is not None) and (not self.prev_relative) and self.target_pose.relative:
-            self.r_hold = self.distance_from_target
-            # reset pid_r accumulators for a clean hold
-            self.pid_r.integral = 0.0
-            self.pid_r.prev_error = 0.0
-
-        # Are we inside the v_r deadband while in relative mode?
-        in_deadband = self.target_pose.relative and abs(self.target_pose.v_r) < self.deadband_vr
-
-        # On entry, latch the current radius as the hold target
-        if in_deadband and not self.was_in_deadband:
-            self.r_hold = self.distance_from_target
-            self.pid_r.integral = 0.0
-            self.pid_r.prev_error = 0.0
-
-        # If in deadband, override radial velocity with a soft radius-hold PID
-        if in_deadband:
-            # same sign convention as your absolute r controller:
-            # error > 0 when you're too far (drone outside -> move inward)
-            r_hold_error = self.distance_from_target - self.r_hold
-            self.vel_r = self.pid_r.compute(r_hold_error, self.dt)
-
-        # Update flags for next cycle
-        self.was_in_deadband = in_deadband
-        self.prev_relative = self.target_pose.relative
-
-        # Decompose velocities into x and y components
-        #Radial speed
-        self.vel_rx, self.vel_ry = self.vel_r*self.unit_vector_to_target
-
-        #Tangential speed -> Ideal trajectory for continuous motion, not for discrete control
-        self.vel_thetax, self.vel_thetay = self.v_theta*np.array([-self.unit_vector_to_target[1], self.unit_vector_to_target[0]])
-
-        #Bend adjustment for discrete control
-        omega = self.v_theta / self.distance_from_target          # [rad/s]
-        arc_angle = omega * self.dt                          # [rad]
-
-        #Math, just trigonometry and algeabra
-        half = 0.5 * arc_angle
-        phi = -half #Made to point inwards
-        sin_half = np.sin(half)
-        # Chord speed
-        #More stable formula for small angles than computing from distance
-        v_new = (2.0 * self.distance_from_target * sin_half) / self.dt if self.dt > 0.0 else 0.0
-
-        #Rotate vectors by phi and scale to circle speed (shorter distance in same time)
-        self.adjusted_vel_theta_x, self.adjusted_vel_theta_y = v_new/self.v_theta * np.array([
-            self.vel_thetax*np.cos(phi) - self.vel_thetay*np.sin(phi),
-            self.vel_thetax*np.sin(phi) + self.vel_thetay*np.cos(phi)
-        ]) if self.v_theta != 0 else (0.0, 0.0)
-
-        self.vel_x = self.vel_rx + self.adjusted_vel_theta_x
-        self.vel_y = self.vel_ry + self.adjusted_vel_theta_y
-        self.send_commands()
+        
 
     def send_commands(self):  
         if self.estimated_target_pose is None or self.target_pose is None:
@@ -359,6 +279,9 @@ class ApproachNode(Node):
                 self.last_time = time.time()
             else:
                 self.compute_estimated_state()
+
+    def drone_speed_callback(self, msg):
+        self.drone_speed = msg.twist.linear
 
     def publish_zero(self):
         # One last zero-velocity setpoint
