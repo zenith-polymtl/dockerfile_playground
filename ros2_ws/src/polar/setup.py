@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'position = polar.position:main',
+            'teleop = polar.teleop:main',
         ],
     },
 )

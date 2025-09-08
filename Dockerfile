@@ -163,6 +163,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 RUN pip install --no-cache-dir matplotlib
 RUN pip install --no-cache-dir pandas
+
+RUN apt-get update && apt-get install -y \
+    ros-$ROS_DISTRO-joy \
+    ros-$ROS_DISTRO-teleop-twist-joy \
+ && rm -rf /var/lib/apt/lists/*
+ 
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
 

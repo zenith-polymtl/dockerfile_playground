@@ -60,7 +60,7 @@ class ApproachNode(Node):
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
-        self.pid_r = PIDController(kp=2.0, ki=0.05, kd=1.2, max_i=0.5)
+        self.pid_r = PIDController(kp=3.0, ki=0.2, kd=1.8, max_i=1.0)
         self.pid_theta = PIDController(kp=0.2, ki=0, kd=0.08)
         self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
@@ -76,6 +76,13 @@ class ApproachNode(Node):
         self.last_time = None
         self.first = True
         self.r_ref = None
+
+        # ----- Radial deadband-hold state -----
+        self.deadband_vr = 0.1  # [m/s]
+        self.r_hold = None
+        self.was_in_deadband = False
+        self.prev_relative = None
+
 
         self.get_logger().info("Polar positioning node started")
 
@@ -106,7 +113,7 @@ class ApproachNode(Node):
         else:
             self.r_error = distance_from_target - self.target_pose.r #r+ is radial in
             def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
-            self.theta_error = wrap_pi(np.arctan2(-delta_y, -delta_x) - self.target_pose.theta)
+            self.theta_error = wrap_pi(np.arctan2(-delta_x, -delta_y) - self.target_pose.theta)
             self.v_theta = None
 
         self.unit_vector_to_target = np.array([delta_x, delta_y]) / distance_from_target if distance_from_target != 0 else np.array([0.0, 0.0])
@@ -144,6 +151,34 @@ class ApproachNode(Node):
 
         if self.v_theta**2/self.distance_from_target > 1.0:
             self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
+
+        # ----- Radial deadband-hold (non-invasive override of vel_r) -----
+        # Detect relative mode rising edge: False -> True
+        if (self.prev_relative is not None) and (not self.prev_relative) and self.target_pose.relative:
+            self.r_hold = self.distance_from_target
+            # reset pid_r accumulators for a clean hold
+            self.pid_r.integral = 0.0
+            self.pid_r.prev_error = 0.0
+
+        # Are we inside the v_r deadband while in relative mode?
+        in_deadband = self.target_pose.relative and abs(self.target_pose.v_r) < self.deadband_vr
+
+        # On entry, latch the current radius as the hold target
+        if in_deadband and not self.was_in_deadband:
+            self.r_hold = self.distance_from_target
+            self.pid_r.integral = 0.0
+            self.pid_r.prev_error = 0.0
+
+        # If in deadband, override radial velocity with a soft radius-hold PID
+        if in_deadband:
+            # same sign convention as your absolute r controller:
+            # error > 0 when you're too far (drone outside -> move inward)
+            r_hold_error = self.distance_from_target - self.r_hold
+            self.vel_r = self.pid_r.compute(r_hold_error, self.dt)
+
+        # Update flags for next cycle
+        self.was_in_deadband = in_deadband
+        self.prev_relative = self.target_pose.relative
 
         # Decompose velocities into x and y components
         #Radial speed
@@ -184,16 +219,17 @@ class ApproachNode(Node):
         twist.twist.linear.z = self.vel_z
 
         self.publisher_vel.publish(twist)
-        self.get_logger().info(f"Published velocities: vx={self.vel_x:.2f}, vy={self.vel_y:.2f}, vz={self.vel_z:.2f}")
+        #self.get_logger().info(f"Published velocities: vx={self.vel_x:.2f}, vy={self.vel_y:.2f}, vz={self.vel_z:.2f}")
 
     def goal_pose_callback(self, msg):
         self.target_pose = msg
-        self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.target_pose.v_r}, relative={self.target_pose.relative}")
+        #self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.target_pose.v_r}, relative={self.target_pose.relative}")
         self.approach_active = True
+        if self.prev_relative is None:
+            self.prev_relative = self.target_pose.relative
 
     def estimation_callback(self, msg):
         self.estimated_target_pose = msg.pose.position
-        self.get_logger().info(f"Received estimated target pose: x={self.estimated_target_pose.x}, y={self.estimated_target_pose.y}, z={self.estimated_target_pose.z}")
 
     def drone_pose_callback(self, msg):
         self.drone_pose = msg.pose.position
