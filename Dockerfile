@@ -1,11 +1,8 @@
-# syntax=docker/dockerfile:1.6
-ARG ROS_DISTRO=humble
-FROM --platform=$TARGETPLATFORM ros:${ROS_DISTRO}-ros-base
+
 # syntax=docker/dockerfile:1.6
 ARG ROS_DISTRO=humble
 FROM --platform=$TARGETPLATFORM ros:${ROS_DISTRO}-ros-base
 
-ARG TARGETPLATFORM
 ARG TARGETPLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
