@@ -56,7 +56,14 @@ class ApproachNode(Node):
         self.drone_position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.drone_pose_callback, qos_profile_BE)
         self.pose_goal_sub = self.create_subscription(TargetPosePolar, '/goal_pose_polar', self.goal_pose_callback, qos_profile)
         self.estimated_target_sub = self.create_subscription(PoseStamped, '/estimated_target_location', self.estimation_callback, qos_profile)
+        self.activation_sub = self.create_subscription(String, '/approach_activation', self.activation_callback, qos_profile)
 
+        self.start_sub = self.create_subscription(  
+            String,  
+            '/controller_activation',  
+            self.controller_callback,  
+            qos_profile  
+        )    
 
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
@@ -86,9 +93,54 @@ class ApproachNode(Node):
 
 
         self.get_logger().info("Polar positioning node started")
+    
+    def controller_callback(self, msg):
+        if msg.data == "stop":
+            self.publish_zero()
+            self.target_pose.v_r = 0.0
+            self.target_pose.v_theta = 0.0
+            self.target_pose.v_z = 0.0
+            self.get_logger().info("Controller Deactivated, stopping targets follow")
+
+    
+
+    def activation_callback(self, msg):
+        if msg.data == "start":
+            self.get_logger().info("Approach Activated")
+            self.approach_active = True
+        elif msg.data == "stop":
+            self.get_logger().info("Approach Deactivated")
+            self.publish_zero()
+            self.approach_active = False
+            # Reset controllers and state
+            self.pid_r.integral = 0.0
+            self.pid_r.prev_error = 0.0
+            self.pid_theta.integral = 0.0
+            self.pid_theta.prev_error = 0.0
+            self.pid_z.integral = 0.0
+            self.pid_z.prev_error = 0.0
+            self.pid_r_dot.integral = 0.0
+            self.pid_r_dot.prev_error = 0.0
+            self.target_pose = None
+            self.first = True
+            self.r_hold = None
+            self.was_in_deadband = False
+            self.prev_relative = None
+            self.estimated_target_pose = None
+            self.estimated_target_pose = None
+            self.last_time = None
+            self.r_error = None
+            self.z_error = None
+            self.theta_error = None
+            self.current_time = None
+            self.last_time = None
+            self.r_ref = None
+
 
 
     def compute_estimated_state(self):
+        if not self.approach_active:
+            return None
         
 
         if self.estimated_target_pose is None:
@@ -133,14 +185,20 @@ class ApproachNode(Node):
         self.last_time = current_time
 
         if self.target_pose.relative:
-            r_dot = self.r_var / self.dt
-            r_dot_error = r_dot - self.target_pose.v_r
-            self.get_logger().info(f'R : {self.distance_from_target}, r_dot : {r_dot}')
-            self.vel_r = self.pid_r_dot.compute(r_dot_error, self.dt)
+            #Compute last radial velocity, and apply pid on radial velocity error
+            if self.target_pose.v_theta < 0.05:
+                self.vel_r = -self.target_pose.v_r if self.target_pose.v_r is not None else 0.0
+            else:
+                r_dot = self.r_var / self.dt
+                r_dot_error =  r_dot - self.target_pose.v_r
+                self.get_logger().info(f'R : {self.distance_from_target}, r_dot : {r_dot}')
+                self.vel_r = self.pid_r_dot.compute(r_dot_error, self.dt)
+
+            self.vel_z = self.target_pose.v_z if self.target_pose.v_z is not None else 0.0
         else:
             self.vel_r = self.pid_r.compute(self.r_error, self.dt)
 
-        self.vel_z = self.pid_z.compute(self.z_error, self.dt)
+            self.vel_z = self.pid_z.compute(self.z_error, self.dt)
 
         #If not relative control, compute theta velocity using pid
         if not self.target_pose.relative:
@@ -150,6 +208,7 @@ class ApproachNode(Node):
             #Computed theta velocity using pid
             self.v_theta = self.pid_theta.compute(theta_distance, self.dt)
 
+        #Centrepedial acceleration limit
         if self.v_theta**2/self.distance_from_target > 1.0:
             self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
 
@@ -193,7 +252,6 @@ class ApproachNode(Node):
         arc_angle = omega * self.dt                          # [rad]
 
         #Math, just trigonometry and algeabra
-        
         half = 0.5 * arc_angle
         phi = -half #Made to point inwards
         sin_half = np.sin(half)
@@ -246,6 +304,7 @@ class ApproachNode(Node):
 
     def goal_pose_callback(self, msg):
         self.target_pose = msg
+        self.target_pose.theta = (-msg.theta+90)/180*np.pi
         #self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.target_pose.v_r}, relative={self.target_pose.relative}")
         self.approach_active = True
         if self.prev_relative is None:
@@ -262,15 +321,49 @@ class ApproachNode(Node):
             else:
                 self.compute_estimated_state()
 
+    def publish_zero(self):
+        # One last zero-velocity setpoint
+        target = PositionTarget()
+        target.header.stamp = self.get_clock().now().to_msg()
+        target.header.frame_id = "map"
+        target.coordinate_frame = PositionTarget.FRAME_LOCAL_NED
+        target.type_mask = (
+            PositionTarget.IGNORE_PX |
+            PositionTarget.IGNORE_PY |
+            PositionTarget.IGNORE_PZ |
+            PositionTarget.IGNORE_AFX |
+            PositionTarget.IGNORE_AFY |
+            PositionTarget.IGNORE_AFZ |
+            PositionTarget.IGNORE_YAW_RATE
+        )
+        target.velocity.x = 0.0
+        target.velocity.y = 0.0
+        target.velocity.z = 0.0
+
+        # Keep yaw stable if we can compute it; otherwise ignore yaw entirely.
+        if self.estimated_target_pose is not None and self.drone_pose is not None:
+            target.yaw = np.arctan2(
+                self.estimated_target_pose.y - self.drone_pose.y,
+                self.estimated_target_pose.x - self.drone_pose.x
+            )
+        else:
+            target.type_mask |= PositionTarget.IGNORE_YAW
+
+        self.publisher_raw.publish(target)
+        self.get_logger().info("Published final ZERO velocity setpoint.")
+
+
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = ApproachNode()
-    rclpy.spin(node)
-    node.destroy_node()
-    if rclpy.ok():
-        rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

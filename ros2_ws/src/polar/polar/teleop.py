@@ -25,6 +25,7 @@ class TargetPoseKeyboard(Node):
         self.r = 0.0
         self.v_theta = 0.0
         self.step = 0.1  # increment per key press
+        self.v_z = 0.0 
 
         # non-blocking keyboard setup
         self.fd = sys.stdin.fileno()
@@ -59,12 +60,16 @@ class TargetPoseKeyboard(Node):
         elif k == 's':
             self.r += self.step
         elif k == 'd':
-            self.v_theta += self.step
-        elif k == 'a':
             self.v_theta -= self.step
+        elif k == 'a':
+            self.v_theta += self.step
+        elif k == 'r':
+            self.v_z += self.step
+        elif k == 'f':
+            self.v_z -= self.step
         # echo compact status on any change
-        if k in ('w','s','a','d',' '):
-            print(f"\r r={self.r:.2f}  v_theta={self.v_theta:.2f}     ", end='', flush=True)
+        if k in ('w','s','a','d',' ', 'r', 'f'):
+            print(f"\r r={self.r:.2f}  v_theta={self.v_theta:.2f}, v_z={self.v_z:.2f}     ", end='', flush=True)
 
     def tick(self):
         # process any pending keystrokes (allow multiple per cycle)
@@ -80,6 +85,7 @@ class TargetPoseKeyboard(Node):
         msg.v_theta = float(self.v_theta)
         # keep the rest simple/neutral; adjust if your interface needs other fields
         msg.v_r = float(self.r)
+        msg.v_z = float(self.v_z)
         msg.z = 0.0
         msg.theta = 0.0
         msg.relative = True
