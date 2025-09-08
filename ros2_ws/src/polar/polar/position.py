@@ -7,7 +7,9 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import numpy as np
 import time
 from custom_interfaces.msg import TargetPosePolar
-from mavros_msgs.msg import PositionTarget  
+from mavros_msgs.msg import PositionTarget 
+from mavros.cmd import CliClient
+from mavros_msgs.srv import MessageInterval   
 
 class PIDController():
     def __init__(self, kp, ki, kd, max_output = 3.0, max_i = 1):  # 3.0 m/s norm is max output for vel in xy directions vectorially
@@ -51,6 +53,11 @@ class ApproachNode(Node):
             depth=8
         )
 
+        self.msg_interval_client = self.create_client(MessageInterval, '/mavros/set_message_interval')  
+          
+        # Set up message intervals after a short delay  
+        self.setup_timer = self.create_timer(1.0, self.setup_message_intervals)  
+
         self.publisher_raw = self.create_publisher(PositionTarget, '/mavros/setpoint_raw/local', qos_profile)  
 
         self.drone_position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.drone_pose_callback, qos_profile_BE)
@@ -68,7 +75,7 @@ class ApproachNode(Node):
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
-        self.pid_r = PIDController(kp=3.0, ki=0.2, kd=1.8, max_i=1.0)
+        self.pid_r = PIDController(kp=1.5, ki=0.2, kd=1.5, max_i=1.0)
         self.pid_theta = PIDController(kp=0.6, ki=0, kd=0.24)
         self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
         self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
@@ -84,6 +91,10 @@ class ApproachNode(Node):
         self.last_time = None
         self.first = True
         self.r_ref = None
+        self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
+
+        self.control_hz = 30
+        self.control_timer = self.create_timer(1.0/self.control_hz, self.send_commands)
 
         # ----- Radial deadband-hold state -----
         self.deadband_vr = 0.1  # [m/s]
@@ -93,6 +104,32 @@ class ApproachNode(Node):
 
 
         self.get_logger().info("Polar positioning node started")
+
+    def setup_message_intervals(self):  
+        """Set up message intervals after node initialization"""  
+        if not self.msg_interval_client.wait_for_service(timeout_sec=1.0):  
+            self.get_logger().warn('Message interval service not available, retrying...')  
+            return  
+          
+        request = MessageInterval.Request()  
+        request.message_id = 32  
+        request.message_rate = 20.0  
+          
+        future = self.msg_interval_client.call_async(request)  
+        future.add_done_callback(self.message_interval_callback)  
+          
+        # Destroy the timer since we only need to run this once  
+        self.destroy_timer(self.setup_timer) 
+
+    def message_interval_callback(self, future):  
+        try:  
+            response = future.result()  
+            if response.success:  
+                self.get_logger().info("Message interval set successfully")  
+            else:  
+                self.get_logger().error("Failed to set message interval")  
+        except Exception as e:  
+            self.get_logger().error(f"Service call failed: {e}") 
     
     def controller_callback(self, msg):
         if msg.data == "stop":
@@ -267,9 +304,10 @@ class ApproachNode(Node):
 
         self.vel_x = self.vel_rx + self.adjusted_vel_theta_x
         self.vel_y = self.vel_ry + self.adjusted_vel_theta_y
-        self.send_commands()
 
     def send_commands(self):  
+        if self.estimated_target_pose is None or self.target_pose is None:
+            return None
         # Create PositionTarget message for setpoint_raw  
         target = PositionTarget()  
         target.header.stamp = self.get_clock().now().to_msg()  
