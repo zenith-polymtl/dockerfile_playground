@@ -164,7 +164,7 @@ docker exec -it dockerfile_playground-zenith-1 bash  #A
 docker compose up   #1.1
 ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}" #1.2
 ros2 topic echo /mavros/local_position/pose #2.1
-ros2 launch start_mission start.pi3.lauch.py    #2.2
+ros2 launch start_mission start.align.lauch.py    #2.2
 python3 graph_crea_pos_yaw.py   #3
 ```
 
@@ -198,7 +198,15 @@ ii. Take off when armed by pilot
 - Lire doc caméra pour inté
 
 ### Baselink
-- Tester for vérif!
+- Empêcher l'itération des target à chaque fois mais juste pour des cibles différentes! Align l.87
+- yaw de 19000 degrés... ??
+
 - Modif graph crea for baselink
 - Add PID for yaw_b pour pas que ce soit trop brusque
 
+### TakeOff
+- Pas faire en sorte qu'il est 10 mètres de plus si déjà take off dans les airs
+- erreur ligne 151 align
+
+### Landing exit brake too far
+- modifier les temps pour pas que ce soit un float random, faire comme l.90 align

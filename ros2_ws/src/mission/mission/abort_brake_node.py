@@ -27,7 +27,8 @@ class AbortBrake(Node):
         self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile_BE)
         
         self.get_logger().info(f"Zenmav main et ses ports splités vont s'initialiser")
-        self.nav = Zenmav(ip = 'tcp:127.0.0.1:5762', GCS = True, tcp_ports=[14553]) # pour simu : 5762 pour première instance Zenmav et 5763 pour Mavros
+        #self.nav = Zenmav(ip = 'tcp:127.0.0.1:5762', GCS = True, tcp_ports=[14553]) # pour simu : 5762 pour première instance Zenmav et 5763 pour Mavros
+        self.nav = Zenmav(ip = 'tcp:127.0.0.1:5762', GCS = True, tcp_ports=[14553, 14554])
         #self.nav = Zenmav(ip = 'udp:127.0.0.1:14550', GCS = True, tcp_ports=[14553]) # pour test de vol
         self.get_logger().info(f'Zenmav main et ses ports splités sont connectés!')
 

@@ -88,7 +88,7 @@ class AlignNode(Node):
                 self.before_F, self.before_L, self.before_U, self.before_yaw_b = F, L, U, yaw_b
 
             temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-            self.get_logger().info(f"target {self.i} : {self.target_baselink_pos.F, self.target_baselink_pos.L, self.target_baselink_pos.U}, yaw_b : {(self.target_baselink_pos.yaw*180/np.pi):.3f} received at {temps}")
+            self.get_logger().info(f"target {self.i} [FLU]: {self.target_baselink_pos.F:.3f}, {self.target_baselink_pos.L:.3f}, {self.target_baselink_pos.U:.3f}, yaw_b : {(self.target_baselink_pos.yaw_b*180/np.pi):.3f} received at {temps}")
     
     def Failsafe_target_too_far(self):
         if self.der_target_recu != " ":
@@ -134,9 +134,9 @@ class AlignNode(Node):
         error_L = self.target_baselink_pos.L
         error_U = self.target_baselink_pos.U
 
-        vel_F = self.pid_x.compute(error_F, dt)
-        vel_L = self.pid_y.compute(error_L, dt)
-        vel_U = self.pid_z.compute(error_U, dt)
+        vel_F = self.pid_F.compute(error_F, dt)
+        vel_L = self.pid_L.compute(error_L, dt)
+        vel_U = self.pid_U.compute(error_U, dt)
         
         max_output = self.pid_F.max_output
         vel_F, vel_L = self.Failsafe_max_vel(vel_F,vel_L, max_output)
@@ -148,9 +148,9 @@ class AlignNode(Node):
                 PositionTarget.IGNORE_YAW_RATE
         #PositionTarget.IGNORE_YAW | 
 
-        PosTar.velocity.F = vel_F
-        PosTar.velocity.L = vel_L
-        PosTar.velocity.U = vel_U
+        PosTar.velocity.x = vel_F
+        PosTar.velocity.y = vel_L
+        PosTar.velocity.z = vel_U
         PosTar.yaw = self.target_baselink_pos.yaw_b # radians
 
         self.publisher_baselink_raw.publish(PosTar)
@@ -158,7 +158,7 @@ class AlignNode(Node):
         # Printing velocities and yaw
         current_time = time.time()
         if current_time - self.last_log_time_control >= 0.5:
-            self.get_logger().info(f"PID velocities & yaw_b - F: {vel_F:.3f}, L: {vel_L:.3f}, U: {vel_U:.3f} with YAW_B: {(self.target_baselink_pos.yaw*180/np.pi):.3f}° at {current_time:.2f}")
+            self.get_logger().info(f"PID velocities & yaw_b - F: {vel_F:.3f}, L: {vel_L:.3f}, U: {vel_U:.3f} with YAW_B: {(self.target_baselink_pos.yaw_b*180/np.pi):.3f}° at {current_time:.2f}")
             self.last_log_time_control = current_time
 
     def Failsafe_max_vel(self, vel_F,vel_L, max_output):

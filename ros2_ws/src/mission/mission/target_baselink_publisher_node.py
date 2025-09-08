@@ -2,35 +2,48 @@ import rclpy
 import time
 import math
 import numpy as np
+from zenmav.core import Zenmav
 from rclpy.node import Node
 from std_msgs.msg import String
+from geometry_msgs.msg import PoseStamped
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 class GoAlignPublisher(Node):
     def __init__(self):
         super().__init__('target_baselink_publisher')
 
+        time.sleep(1)
+        self.get_logger().info(f"Zenmav port target baselink va s'initialiser")
+        self.drone = Zenmav(ip='tcp:127.0.0.1:14554') # Se connecte à un des splits ports de Zenmav de abort_brake node
+        self.get_logger().info(f'Zenmav port target baselink est connecté!')
+
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=8
         )
-        
+        qos_profile_BE = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=8
+        )
+
         self.subscriber_atg = self.create_subscription(String, '/approach_target_graph', self.atg_callback, qos_profile)
         self.publisher_target = self.create_publisher(String, '/go_target_baselink', qos_profile)
         self.subscriber_ab_call = self.create_subscription(String, '/close', self.close_callback, 10)
+        self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile_BE)
 
         ### TARGETS TEST VOL I
         self.timer_period_between_target_switch = 8.0 # sec
 
-        self.target_1 = "0,0,10"
-        self.target_2 = "2,0,10"
-        self.target_3 = "0,2,12" 
-        self.target_4 = "2,0,12"
-        self.target_5 = "0,2,10"
-        self.target_6 = "2,0,10"
+        self.target_1 = [0,0,10,np.pi/6]
+        self.target_2 = [2,0,10,np.pi/2]
+        self.target_3 = [0,2,12,np.pi/4] 
+        self.target_4 = [2,0,12,np.pi/1]
+        self.target_5 = [0,2,10,np.pi/10]
+        self.target_6 = [2,0,10,np.pi/3]
 
-        self.target_7 = "10,10,20" # to trigger failsafe : target baselink too far
+        self.target_7 = [10,10,20,np.pi/0.5] # to trigger failsafe : target baselink too far
         ### FIN TARGETS TEST DE VOL I
         
         # Pour test de vol I :
@@ -75,7 +88,25 @@ class GoAlignPublisher(Node):
     def timer_callback(self):
         msg = String()
         self.tar = (self.i) % len(self.targets)      # liste et index circulaire
-        msg.data = self.targets[self.tar]
+        self.target_local = np.array(self.targets[self.tar])
+        self.target_local_ny = self.target_local[0:3] # sans le yaw
+        
+        self.position_actuelle_locale_ny = np.array([self.curr_pos.x, self.curr_pos.y, self.curr_pos.z])
+        self.target_baselink_ny = self.target_local_ny - self.position_actuelle_locale_ny # sans yaw (ny)
+
+        # TF [N,E,U] --> [F,L,U]
+        hdg_rad = self.drone.get_global_pos(heading=True).hdg # rad
+        F_1 = self.target_baselink_ny[0] * np.cos(hdg_rad)
+        L_1 = self.target_baselink_ny[0] * np.sin(hdg_rad)
+        F_2 = self.target_baselink_ny[1] * np.sin(hdg_rad)
+        L_2 = self.target_baselink_ny[1] * np.cos(hdg_rad + np.pi)
+
+        # yaw baselink
+        Y = self.target_local[3] - hdg_rad
+
+        self.target_baselink = f"{F_1 + F_2},{L_1 + L_2},{self.target_baselink_ny[2]},{Y}"
+
+        msg.data = self.target_baselink
         self.publisher_target.publish(msg)
 
         # Section de contrôle de changement de target et de print terminaux de celle-ci
@@ -90,6 +121,9 @@ class GoAlignPublisher(Node):
         if elapsed_get_logger_target > 0.5:
             self.get_logger().info(f'Published baselink target at {self.Hertz} Hz: "{msg.data}"')
             self.last_record_time_glt = current_time
+
+    def pose_callback(self, msg):
+        self.curr_pos = msg.pose.position
 
     def atg_callback(self, msg):
         if msg.data == "GO!":
