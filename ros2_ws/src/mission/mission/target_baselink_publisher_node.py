@@ -34,21 +34,21 @@ class GoAlignPublisher(Node):
         self.position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.pose_callback, qos_profile_BE)
 
         ### TARGETS TEST VOL I
-        self.timer_period_between_target_switch = 8.0 # sec
+        self.timer_period_between_target_switch = 10.0 # sec
 
-        self.target_1 = [0,0,10,np.pi/6]
-        self.target_2 = [2,0,10,np.pi/2]
-        self.target_3 = [0,2,12,np.pi/4] 
-        self.target_4 = [2,0,12,np.pi/1]
-        self.target_5 = [0,2,10,np.pi/10]
-        self.target_6 = [2,0,10,np.pi/3]
+        self.target_1 = [5,0,10,0]
+        self.target_2 = [-5,0,10,0]
+        #self.target_3 = [-2,2,0,0] 
+        #self.target_4 = [2,-2,0,0]
+        #self.target_5 = [-2,2,10,0]
+        #self.target_6 = [2,-2,10,0]
 
-        self.target_7 = [10,10,20,np.pi/0.5] # to trigger failsafe : target baselink too far
+        #self.target_7 = [10,10,20,np.pi/16] # to trigger failsafe : target baselink too far
         ### FIN TARGETS TEST DE VOL I
         
         # Pour test de vol I :
         self.targets = []
-        for i in range(1, 8):  # (1, N+1) À CHANGER DÉPENDANT DE LA MISSION
+        for i in range(1, 3):  # (1, N+1) À CHANGER DÉPENDANT DE LA MISSION
             self.targets.append(getattr(self, f"target_{i}"))
 
         """ EX ### TARGETS TEST VOL IV - Cercle
@@ -90,9 +90,12 @@ class GoAlignPublisher(Node):
         self.tar = (self.i) % len(self.targets)      # liste et index circulaire
         self.target_local = np.array(self.targets[self.tar])
         self.target_local_ny = self.target_local[0:3] # sans le yaw
+        self.get_logger().info(f'self.target_local_ny EST LA SUIVANTE : "{self.target_local_ny}", donc sans le yaw') ##
         
         self.position_actuelle_locale_ny = np.array([self.curr_pos.x, self.curr_pos.y, self.curr_pos.z])
+        self.get_logger().info(f'self.position_actuelle_locale_ny EST LA SUIVANTE : "{self.position_actuelle_locale_ny}", donc pos sans le yaw') ##
         self.target_baselink_ny = self.target_local_ny - self.position_actuelle_locale_ny # sans yaw (ny)
+        self.get_logger().info(f'self.target_baselink_ny EST LA SUIVANTE : "{self.target_baselink_ny}", donc pos baselink sans le yaw') ##
 
         # TF [N,E,U] --> [F,L,U]
         hdg_rad = self.drone.get_global_pos(heading=True).hdg # rad
@@ -102,9 +105,11 @@ class GoAlignPublisher(Node):
         L_2 = self.target_baselink_ny[1] * np.cos(hdg_rad + np.pi)
 
         # yaw baselink
-        Y = self.target_local[3] - hdg_rad
+        self.Y = self.target_local[3] - hdg_rad
 
-        self.target_baselink = f"{F_1 + F_2},{L_1 + L_2},{self.target_baselink_ny[2]},{Y}"
+        self.target_baselink = f"{F_1 + F_2},{L_1 + L_2},{self.target_baselink_ny[2]},{self.Y}"
+        self.get_logger().info(f'YAW de la target de linstant EST LA SUIVANTE : "{self.Y*180/np.pi:.3f}" degrés') ##
+        self.get_logger().info(f'self.target_baselink EST LA SUIVANTE : "{self.target_baselink}", donc tar baselink') ##
 
         msg.data = self.target_baselink
         self.publisher_target.publish(msg)
@@ -118,17 +123,18 @@ class GoAlignPublisher(Node):
             self.i += 1
             self.last_record_time_ct = current_time
 
-        if elapsed_get_logger_target > 0.5:
+        if elapsed_get_logger_target > 0.2: # 0.5
             self.get_logger().info(f'Published baselink target at {self.Hertz} Hz: "{msg.data}"')
             self.last_record_time_glt = current_time
 
     def pose_callback(self, msg):
         self.curr_pos = msg.pose.position
+        self.get_logger().info(f'Current position du drone en LOCAL :  {self.curr_pos}')
 
     def atg_callback(self, msg):
         if msg.data == "GO!":
             self.get_logger().info(f'message {msg.data} received to start target baselink')
-            self.Hertz = 15
+            self.Hertz = 20
             self.timer = self.create_timer(1/self.Hertz, self.timer_callback)
 
         else:

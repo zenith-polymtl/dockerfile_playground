@@ -210,3 +210,16 @@ ii. Take off when armed by pilot
 
 ### Landing exit brake too far
 - modifier les temps pour pas que ce soit un float random, faire comme l.90 align
+
+### FORMATIONS SEPT-OCT
+- FORMATION NIVEAU 2 , repo déjà présent
+    - Truc pas clair, service, timer, etc des fonctions utiles par montrées
+    - Donner d'ici le 8 octobre, dans le document, au pire  dans le repo direct
+- FORMATION NIVEAU 1, la repasser aussi si on veux, mais pas prioritaire, d'ici genre 16 sept, IDK
+
+### Idées tâches
+- scripts lua direct dans controleur de vol, exploration?!
+- optical flow
+- a quel point on peut rester sur un point, estimateur ext.
+- manual PID tuning (rate, angle, trultte, nav controler)
+- docker gazebo à faire

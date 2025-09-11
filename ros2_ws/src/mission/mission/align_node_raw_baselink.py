@@ -83,12 +83,12 @@ class AlignNode(Node):
             self.target_baselink_pos = target_baselink(float(F), float(L), float(U), float(yaw_b))
             self.Failsafe_target_too_far()
 
-            if not F == self.before_F or not L == self.before_L or not U == self.before_U or not yaw_b == self.before_yaw_b:
-                self.i += 1
-                self.before_F, self.before_L, self.before_U, self.before_yaw_b = F, L, U, yaw_b
+            #if not F == self.before_F or not L == self.before_L or not U == self.before_U or not yaw_b == self.before_yaw_b:
+            #    self.i += 1
+            #    self.before_F, self.before_L, self.before_U, self.before_yaw_b = F, L, U, yaw_b
 
-            temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-            self.get_logger().info(f"target {self.i} [FLU]: {self.target_baselink_pos.F:.3f}, {self.target_baselink_pos.L:.3f}, {self.target_baselink_pos.U:.3f}, yaw_b : {(self.target_baselink_pos.yaw_b*180/np.pi):.3f} received at {temps}")
+            #temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) ##
+            #self.get_logger().info(f"target {self.i} [FLU]: {self.target_baselink_pos.F:.3f}, {self.target_baselink_pos.L:.3f}, {self.target_baselink_pos.U:.3f}, yaw_b : {(self.target_baselink_pos.yaw_b*180/np.pi):.3f} received at {temps}") ##
     
     def Failsafe_target_too_far(self):
         if self.der_target_recu != " ":
@@ -110,7 +110,7 @@ class AlignNode(Node):
     def Failsafe_target_acquired(self):
         if hasattr(self, 'der_target_time_recu'):
             elapsed = time.time() - self.der_target_time_recu
-            max_time_without_target = 3 # secondes # on vise entre 0.2 et 0.8?
+            max_time_without_target = 3 # secondes
             if elapsed >= max_time_without_target:
                 self.get_logger().warn(f"Failsafe triggered: No target received in {max_time_without_target}s. Switching to BRAKE mode.")
                 msg = String()
@@ -158,7 +158,7 @@ class AlignNode(Node):
         # Printing velocities and yaw
         current_time = time.time()
         if current_time - self.last_log_time_control >= 0.5:
-            self.get_logger().info(f"PID velocities & yaw_b - F: {vel_F:.3f}, L: {vel_L:.3f}, U: {vel_U:.3f} with YAW_B: {(self.target_baselink_pos.yaw_b*180/np.pi):.3f}° at {current_time:.2f}")
+            #self.get_logger().info(f"PID velocities & yaw_b - F: {vel_F:.3f}, L: {vel_L:.3f}, U: {vel_U:.3f} with YAW_B: {(self.target_baselink_pos.yaw_b*180/np.pi):.3f}° at {current_time:.2f}") ##
             self.last_log_time_control = current_time
 
     def Failsafe_max_vel(self, vel_F,vel_L, max_output):
