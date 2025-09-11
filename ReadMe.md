@@ -223,3 +223,5 @@ ii. Take off when armed by pilot
 - a quel point on peut rester sur un point, estimateur ext.
 - manual PID tuning (rate, angle, trultte, nav controler)
 - docker gazebo à faire
+
+- custom_interfaces

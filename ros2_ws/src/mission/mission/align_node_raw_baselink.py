@@ -151,7 +151,7 @@ class AlignNode(Node):
         PosTar.velocity.x = vel_F
         PosTar.velocity.y = vel_L
         PosTar.velocity.z = vel_U
-        PosTar.yaw = self.target_baselink_pos.yaw_b # radians
+        PosTar.yaw = (self.target_baselink_pos.yaw_b)*np.pi/180 # radians
 
         self.publisher_baselink_raw.publish(PosTar)
 

@@ -36,8 +36,8 @@ class GoAlignPublisher(Node):
         ### TARGETS TEST VOL I
         self.timer_period_between_target_switch = 10.0 # sec
 
-        self.target_1 = [5,0,10,0]
-        self.target_2 = [-5,0,10,0]
+        self.target_1 = [0,0,10,0] # Tout isoler, vérif breaking point (mth bissection), calculer a la main, et vérif des cas très simple, style rester au même point et jarter align pour juste analyser le output target_baselink!
+        #self.target_2 = [-5,0,10,0]
         #self.target_3 = [-2,2,0,0] 
         #self.target_4 = [2,-2,0,0]
         #self.target_5 = [-2,2,10,0]
@@ -48,7 +48,7 @@ class GoAlignPublisher(Node):
         
         # Pour test de vol I :
         self.targets = []
-        for i in range(1, 3):  # (1, N+1) À CHANGER DÉPENDANT DE LA MISSION
+        for i in range(1, 2):  # (1, N+1) À CHANGER DÉPENDANT DE LA MISSION
             self.targets.append(getattr(self, f"target_{i}"))
 
         """ EX ### TARGETS TEST VOL IV - Cercle
@@ -103,12 +103,15 @@ class GoAlignPublisher(Node):
         L_1 = self.target_baselink_ny[0] * np.sin(hdg_rad)
         F_2 = self.target_baselink_ny[1] * np.sin(hdg_rad)
         L_2 = self.target_baselink_ny[1] * np.cos(hdg_rad + np.pi)
+        self.get_logger().info(f'L2') ##
 
+        self.get_logger().info(f'YAW de la target de linstant EST LA SUIVANTE : "{self.Y:.3f}" degrés') ##
         # yaw baselink
         self.Y = self.target_local[3] - hdg_rad
 
         self.target_baselink = f"{F_1 + F_2},{L_1 + L_2},{self.target_baselink_ny[2]},{self.Y}"
-        self.get_logger().info(f'YAW de la target de linstant EST LA SUIVANTE : "{self.Y*180/np.pi:.3f}" degrés') ##
+        #self.get_logger().info(f'YAW de la target de linstant EST LA SUIVANTE : "{self.Y*180/np.pi:.3f}" degrés') ## car Zenmav renvoit des degrés
+        self.get_logger().info(f'YAW de la target de linstant EST LA SUIVANTE : "{self.Y:.3f}" degrés') ##
         self.get_logger().info(f'self.target_baselink EST LA SUIVANTE : "{self.target_baselink}", donc tar baselink') ##
 
         msg.data = self.target_baselink
