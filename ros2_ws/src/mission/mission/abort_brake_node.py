@@ -42,17 +42,22 @@ class AbortBrake(Node):
             msg_close = String()
             msg_close.data = "close"
             self.publisher_ab_call.publish(msg_close)
-            self.get_logger().info(f'Nodes approach/align, target/target_baselink and graph successfully closed at {time.time():.3f} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})!')
+            temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            self.get_logger().info(f'Nodes approach/align, target/target_baselink and graph successfully closed at {temps} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})!')
 
-            self.get_logger().info(f'Brake incoming at {time.time():.3f} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}), {msg.data} received!')
+            temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            self.get_logger().info(f'Brake incoming at {temps} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f}), {msg.data} received!')
             self.nav.set_mode('BRAKE')
-            self.get_logger().info(f'Brake mode successfully enforced!')
+            temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            self.get_logger().info(f'Brake mode successfully enforced at {temps} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})!')
 
             time.sleep(3)
 
-            self.get_logger().info(f'RTL mode successfully enforced at {time.time():.3f}! at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})')
+            temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            self.get_logger().info(f'RTL mode successfully enforced at {temps} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})')
             self.nav.RTL()
-            self.get_logger().info(f'Land done at {time.time():.3f}! at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})')
+            temps = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            self.get_logger().info(f'Land done at {temps} at ({self.curr_pos.x:.3f}, {self.curr_pos.y:.3f}, {self.curr_pos.z:.3f})')
 
             time.sleep(1)
 

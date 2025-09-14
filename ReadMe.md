@@ -164,7 +164,7 @@ docker exec -it dockerfile_playground-zenith-1 bash  #A
 docker compose up   #1.1
 ros2 service call /mavros/set_message_interval mavros_msgs/srv/MessageInterval "{message_id: 32, message_rate: 20.0}" #1.2
 ros2 topic echo /mavros/local_position/pose #2.1
-ros2 launch start_mission start.align.lauch.py    #2.2
+ros2 launch start_mission start.align.lauch.py    #2.2 ros2 launch start_mission fortest.lauch.py
 python3 graph_crea_pos_yaw.py   #3
 ```
 
@@ -189,20 +189,20 @@ ii. Take off when armed by pilot
 ## 9. Planning
 
 ### Control
-- yaw non harcode, vérif yaw convention for whole pipe, (l.62 de graph_node et targets circle de target_publisher_node)
-    - Fait?
-
-- control with pos/vel/acc for smoothness 
+- control with pos/vel/acc for smoothness TO TRY
 
 ### Inté cam
 - Lire doc caméra pour inté
 
 ### Baselink
-- Empêcher l'itération des target à chaque fois mais juste pour des cibles différentes! Align l.87
-- yaw de 19000 degrés... ??
+- Adapter angle align avec ce que caméra donnera! (rad vs deg) l.76 align
+- l.60
+- Add PID for yaw_b pour pas que ce soit trop brusque
+- Test Failsafes avec baselink
 
 - Modif graph crea for baselink
-- Add PID for yaw_b pour pas que ce soit trop brusque
+
+- custom_interfaces for msg en classe!
 
 ### TakeOff
 - Pas faire en sorte qu'il est 10 mètres de plus si déjà take off dans les airs
@@ -223,5 +223,3 @@ ii. Take off when armed by pilot
 - a quel point on peut rester sur un point, estimateur ext.
 - manual PID tuning (rate, angle, trultte, nav controler)
 - docker gazebo à faire
-
-- custom_interfaces
