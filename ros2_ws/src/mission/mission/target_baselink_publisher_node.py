@@ -35,12 +35,12 @@ class GoAlignPublisher(Node):
 
         ### TARGETS TEST VOL I
         self.timer_period_between_target_switch = 14.0 # sec
-        nbr_targets = 4 # Faire varier
+        nbr_targets = 3 # Faire varier
 
         self.target_1 = [0,0,10,0] # North, East, Haut| yaw sont en degrés!
-        self.target_2 = [0,0,10,170]
-        self.target_3 = [0,0,10,0]
-        self.target_4 = [0,0,10,-170]
+        self.target_2 = [2,2,10,45]
+        self.target_3 = [-2,-2,10,-45]
+        #self.target_4 = [0,0,10,0]
         #self.target_5 = [-2,2,10,0]
         #self.target_6 = [2,-2,10,0]
         #self.target_7 = [10,10,20,np.pi/16] # to trigger failsafe : target baselink too far
@@ -64,7 +64,7 @@ class GoAlignPublisher(Node):
         target_local = np.array(self.targets[tar])
         target_local_ny = target_local[0:3] # sans le yaw (ny)
         #self.get_logger().info(f'target_local_ny est : {target_local_ny}')
-        position_actuelle_locale_ny = np.array([self.curr_pos.x, self.curr_pos.y, self.curr_pos.z])
+        position_actuelle_locale_ny = np.array([self.curr_pos.y, self.curr_pos.x, self.curr_pos.z])
         self.get_logger().info(f'position_actuelle_locale_ny est : {position_actuelle_locale_ny}')
         target_baselink_ny = target_local_ny - position_actuelle_locale_ny # sans yaw (ny)
         #self.get_logger().info(f'target_baselink_ny est : {target_baselink_ny} en NEU')
@@ -72,19 +72,26 @@ class GoAlignPublisher(Node):
         # Target TF [N,E,U] --> [F,L,U]
         hdg_deg = self.drone.get_global_pos(heading=True).hdg # degrés
         hdg_rad = np.deg2rad(hdg_deg)
-        ang_rota = np.pi/2 - hdg_rad
+        #ang_rota = np.pi/2 - hdg_rad
+        ang_rota = hdg_rad
+
 
         R = np.array([[np.cos(ang_rota),  np.sin(ang_rota)],[-np.sin(ang_rota), np.cos(ang_rota)]])
-        EN = [target_baselink_ny[1], target_baselink_ny[0]]
-        FL = R @ EN
+        #EN = [-target_baselink_ny[1], target_baselink_ny[0]]
+        #FL = R @ EN
+        NE = [target_baselink_ny[0], -target_baselink_ny[1]]
+        FR = R @ NE
+        FL = [FR[0], -FR[1]] # Pour remettre en ordre FLU
 
-        epsilon = (FL[0])**2 + (FL[1])**2 - (EN[0])**2 - (EN[1])**2
+        epsilon = (FL[0])**2 + (FL[1])**2 - (NE[0])**2 - (NE[1])**2
         self.get_logger().info(f'epsilon FL-EN : {epsilon:.3f}')
 
         # Yaw Baselink
         yaw_bl = target_local[3] - hdg_deg
-        if abs(yaw_bl) > 180:
-            yaw_bl = target_local[3] + 360 - hdg_deg
+        if yaw_bl > 180:
+            yaw_bl -=  360
+        elif yaw_bl <= -180:
+            yaw_bl +=  360
 
         target_baselink = f"{FL[0]:.3f},{FL[1]:.3f},{target_baselink_ny[2]:.3f},{yaw_bl:.3f}"
         self.get_logger().info(f'Venant de la target locale "{target_local}", le yaw du drone est : "{hdg_deg:.3f}" degrés')

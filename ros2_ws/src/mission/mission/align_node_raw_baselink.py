@@ -152,12 +152,13 @@ class AlignNode(Node):
         PosTar.type_mask = PositionTarget.IGNORE_PX | PositionTarget.IGNORE_PY | PositionTarget.IGNORE_PZ | \
                 PositionTarget.IGNORE_AFX | PositionTarget.IGNORE_AFY | PositionTarget.IGNORE_AFZ | \
                 PositionTarget.IGNORE_YAW
-        # PositionTarget.IGNORE_YAW_RATE |
+        # PositionTarget.IGNORE_YAW_RATE | PositionTarget.IGNORE_YAW
 
         PosTar.velocity.x = vel_F # Forward m/s
         PosTar.velocity.y = -vel_L # Right m/s
         PosTar.velocity.z = vel_U # m/s
-        PosTar.yaw_rate = vel_yaw_b # rad/s
+        PosTar.yaw_rate = 0.00 #
+        #PosTar.yaw_rate = vel_yaw_b # rad/s
         #PosTar.yaw = (self.target_baselink_pos.yaw_b)*np.pi/180 # radians
 
         self.publisher_baselink_raw.publish(PosTar)
