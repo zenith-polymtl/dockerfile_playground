@@ -9,7 +9,14 @@ import time
 from custom_interfaces.msg import TargetPosePolar
 from mavros_msgs.msg import PositionTarget 
 from mavros.cmd import CliClient
-from mavros_msgs.srv import MessageInterval   
+from mavros_msgs.srv import MessageInterval
+from sensor_msgs.msg import Imu  
+import math
+from zenmav.core import Zenmav
+
+
+    
+  
 
 class PIDController():
     def __init__(self, kp, ki, kd, max_output = 3.0, max_i = 1):  # 3.0 m/s norm is max output for vel in xy directions vectorially
@@ -76,9 +83,10 @@ class ApproachNode(Node):
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
-        self.pid_r = PIDController(kp=4.0, ki=1.0, kd=2.5, max_i=2.0, max_output=5.0)
+        self.pid_r = PIDController(kp=3.0, ki=1.0, kd=2, max_i=1.0, max_output=5.0)
         self.pid_theta = PIDController(kp=0.6, ki=0, kd=0.24)
         self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
+        self.pid_yaw = PIDController(kp=3, ki=1, kd=0.3, max_i=0.5,  max_output=6)
         #self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
 
         self.estimated_target_pose = None
@@ -92,7 +100,10 @@ class ApproachNode(Node):
         self.last_time = None
         self.first = True
         self.r_ref = None
+        self.yaw = None
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
+
+        self.drone = Zenmav('tcp:127.0.0.1:5762')
 
 
         # ----- Radial deadband-hold state -----
@@ -101,7 +112,7 @@ class ApproachNode(Node):
         self.get_logger().info("Polar positioning node started")
 
     def setup_message_intervals(self):
-        if False:
+        if True:
             """Set up message intervals after node initialization"""  
             if not self.msg_interval_client.wait_for_service(timeout_sec=1.0):  
                 self.get_logger().warn('Message interval service not available, retrying...')  
@@ -152,13 +163,10 @@ class ApproachNode(Node):
             self.pid_theta.prev_error = 0.0
             self.pid_z.integral = 0.0
             self.pid_z.prev_error = 0.0
-            self.pid_r_dot.integral = 0.0
-            self.pid_r_dot.prev_error = 0.0
             self.target_pose = None
             self.first = True
             self.r_hold = None
-            self.was_in_deadband = False
-            self.prev_relative = None
+
             self.estimated_target_pose = None
             self.last_time = None
             self.r_error = None
@@ -166,9 +174,7 @@ class ApproachNode(Node):
             self.theta_error = None
             self.current_time = None
             self.last_time = None
-            self.r_ref = None
             self.drone_speed = None
-
 
 
     def compute_estimated_state(self):
@@ -288,6 +294,33 @@ class ApproachNode(Node):
 
         self.vel_x = self.vel_rx + self.adjusted_vel_theta_x
         self.vel_y = self.vel_ry + self.adjusted_vel_theta_y
+
+        if self.target_pose is None or self.drone_pose is None:
+            return 
+        
+
+        # hdg_deg: 0 = North, +CW (aircraft heading)
+        hdg_deg = self.drone.get_global_pos(heading=True).hdg
+        yaw_enu = ((math.radians(90.0 - hdg_deg) + math.pi) % (2*math.pi)) - math.pi   # [-pi, pi]
+        heading = yaw_enu
+          
+        angle_towards_target_rad = np.arctan2(  
+            self.estimated_target_pose.y - self.drone_pose.y,
+            self.estimated_target_pose.x - self.drone_pose.x  
+        )  
+
+        error_yaw = angle_towards_target_rad - heading
+
+        #yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target
+        yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target
+        # Normalize error to [-pi, pi]
+        error_yaw = (error_yaw + np.pi) % (2 * np.pi) - np.pi
+        self.yaw_rate = self.pid_yaw.compute(error_yaw, self.dt) if self.dt > 0 else 0.0  
+        self.yaw_rate += - yaw_feed_forward if self.target_pose.v_r > 0 else yaw_feed_forward
+        print(f"Yaw rate : {self.yaw_rate}")
+              
+        self.get_logger().info(f'Heading: {heading:.2f} radians')  
+
         self.send_commands()
 
     def send_commands(self):  
@@ -307,7 +340,7 @@ class ApproachNode(Node):
             PositionTarget.IGNORE_AFX |  
             PositionTarget.IGNORE_AFY |  
             PositionTarget.IGNORE_AFZ |  
-            PositionTarget.IGNORE_YAW_RATE  # We want to control yaw angle, not yaw rate  
+            PositionTarget.IGNORE_YAW 
         )  
           
         # Set velocity components  
@@ -315,12 +348,8 @@ class ApproachNode(Node):
         target.velocity.y = self.vel_y  
         target.velocity.z = self.vel_z  
           
-        # Set yaw angle (convert from degrees to radians)  
-        angle_towards_target_rad = np.arctan2(  
-            self.estimated_target_pose.y - self.drone_pose.y,
-            self.estimated_target_pose.x - self.drone_pose.x  
-        )  
-        target.yaw = angle_towards_target_rad  
+
+        target.yaw_rate = float(self.yaw_rate)
           
         self.publisher_raw.publish(target)
         #self.get_logger().info(f"Published velocities: vx={self.vel_x:.2f}, vy={self.vel_y:.2f}, vz={self.vel_z:.2f}")
@@ -344,6 +373,8 @@ class ApproachNode(Node):
                 self.last_time = time.time()
             else:
                 self.compute_estimated_state()
+    
+        
 
     def publish_zero(self):
         # One last zero-velocity setpoint
@@ -371,7 +402,7 @@ class ApproachNode(Node):
                 self.estimated_target_pose.x - self.drone_pose.x
             )
         else:
-            target.type_mask |= PositionTarget.IGNORE_YAW
+            target.type_mask |= PositionTarget.IGNORE_YAW_RATE
 
         self.publisher_raw.publish(target)
         self.get_logger().info("Published final ZERO velocity setpoint.")

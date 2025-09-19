@@ -215,6 +215,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-cv-bridge \
     && rm -rf /var/lib/apt/lists/*
 
+# Install tf_transformations for ROS 2  
+RUN apt-get update && apt-get install -y \  
+    ros-${ROS_DISTRO}-tf-transformations \  
+    && rm -rf /var/lib/apt/lists/*
+
 # Try to install dependencies with rosdep, but skip libcamera
 # If this fails, we'll continue with the build anyway
 RUN ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && rosdep install -y --from-paths src --ignore-src --rosdistro humble --skip-keys libcamera || true"]
