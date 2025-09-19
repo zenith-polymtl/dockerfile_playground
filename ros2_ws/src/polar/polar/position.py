@@ -76,10 +76,10 @@ class ApproachNode(Node):
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
         # PD Controllers for XYZ pos control by try and retry sim analysis
-        self.pid_r = PIDController(kp=1.5, ki=0.2, kd=1.5, max_i=1.0)
+        self.pid_r = PIDController(kp=4.0, ki=1.0, kd=2.5, max_i=2.0, max_output=5.0)
         self.pid_theta = PIDController(kp=0.6, ki=0, kd=0.24)
         self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
-        self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
+        #self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
 
         self.estimated_target_pose = None
         self.drone_pose = None
@@ -94,31 +94,26 @@ class ApproachNode(Node):
         self.r_ref = None
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
 
-        self.control_hz = 20
-        #self.control_timer = self.create_timer(1.0/self.control_hz, self.send_commands)
 
         # ----- Radial deadband-hold state -----
-        self.deadband_vr = 0.1  # [m/s]
         self.r_hold = None
-        self.was_in_deadband = False
-        self.prev_relative = None
-
 
         self.get_logger().info("Polar positioning node started")
 
-    def setup_message_intervals(self):  
-        """Set up message intervals after node initialization"""  
-        if not self.msg_interval_client.wait_for_service(timeout_sec=1.0):  
-            self.get_logger().warn('Message interval service not available, retrying...')  
-            return  
-          
-        request = MessageInterval.Request()  
-        request.message_id = 32  
-        request.message_rate = 20.0  
-          
-        future = self.msg_interval_client.call_async(request)  
-        future.add_done_callback(self.message_interval_callback)  
-          
+    def setup_message_intervals(self):
+        if False:
+            """Set up message intervals after node initialization"""  
+            if not self.msg_interval_client.wait_for_service(timeout_sec=1.0):  
+                self.get_logger().warn('Message interval service not available, retrying...')  
+                return  
+            
+            request = MessageInterval.Request()  
+            request.message_id = 32  
+            request.message_rate = 20.0  
+            
+            future = self.msg_interval_client.call_async(request)  
+            future.add_done_callback(self.message_interval_callback)  
+            
         # Destroy the timer since we only need to run this once  
         self.destroy_timer(self.setup_timer) 
 
@@ -189,9 +184,6 @@ class ApproachNode(Node):
         delta_y = self.estimated_target_pose.y - self.drone_pose.y
         delta_z = self.estimated_target_pose.z - self.drone_pose.z
 
-        
-
-
         self.z_error = delta_z + float(self.target_pose.z)
 
         distance_from_target = np.sqrt(delta_x**2 + delta_y**2)
@@ -212,9 +204,14 @@ class ApproachNode(Node):
         self.radial_speed_measured = vel_x * radial_unit_vector[0] + vel_y * radial_unit_vector[1]
         self.tangential_speed_measured = vel_x * tangential_unit_vector[0] + vel_y * tangential_unit_vector[1]
 
+        if self.first: 
+            self.first = False
+            self.last_distance_from_target = distance_from_target
+            self.r_hold = distance_from_target
+
 
         if self.target_pose.relative:
-            self.r_var = self.distance_from_target - self.last_distance_from_target if not self.first else 0.0
+            self.r_error = self.distance_from_target - self.r_hold
             self.last_distance_from_target = self.distance_from_target
             self.v_theta = self.target_pose.v_theta
         else:
@@ -225,10 +222,7 @@ class ApproachNode(Node):
 
         self.unit_vector_to_target = np.array([delta_x, delta_y]) / distance_from_target if distance_from_target != 0 else np.array([0.0, 0.0])
 
-        if self.first: 
-            self.first = False
-            self.last_distance_from_target = distance_from_target
-            self.r_var = 0.0
+
 
         self.compute_commands()
 
@@ -240,18 +234,14 @@ class ApproachNode(Node):
 
         if self.target_pose.relative:
             #Compute last radial velocity, and apply pid on radial velocity error
-            if abs(self.target_pose.v_theta) < 0.1:
-                self.vel_r = -self.target_pose.v_r if self.target_pose.v_r is not None else 0.0
-            else:
-                r_dot = -self.radial_speed_measured
-                r_dot_error =  r_dot - self.target_pose.v_r
-                self.get_logger().info(f'R : {self.distance_from_target}, r_dot : {r_dot}')
-                self.vel_r = self.pid_r_dot.compute(r_dot_error, self.dt)
-                k = 1
-                self.vel_r += k*self.tangential_speed_measured**2/self.distance_from_target
-                
 
+            self.vel_r = self.pid_r.compute(self.r_error, self.dt)
             self.vel_z = self.target_pose.v_z if self.target_pose.v_z is not None else 0.0
+
+            if abs(self.target_pose.v_r) > 0.01:
+                self.r_hold += self.target_pose.v_r * self.dt
+            self.get_logger().info(f" Distance : {self.distance_from_target}, r_hold: {self.r_hold}, self.vel_r: {self.vel_r}")
+            
         else:
             self.vel_r = self.pid_r.compute(self.r_error, self.dt)
 
@@ -269,38 +259,7 @@ class ApproachNode(Node):
         if self.v_theta**2/self.distance_from_target > 1.0:
             self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
 
-        # ----- Radial deadband-hold (non-invasive override of vel_r) -----
-        # Detect relative mode rising edge: False -> True
-        if (self.prev_relative is not None) and (not self.prev_relative) and self.target_pose.relative:
-            self.r_hold = self.distance_from_target
-            # reset pid_r accumulators for a clean hold
-            self.pid_r.integral = 0.0
-            self.pid_r.prev_error = 0.0
-            self.pid_r_dot.integral = 0.0
-            self.pid_r_dot.prev_error = 0.0
-
-        # Are we inside the v_r deadband while in relative mode?
-        in_deadband = self.target_pose.relative and abs(self.target_pose.v_r) < self.deadband_vr
-
-        # On entry, latch the current radius as the hold target
-        if in_deadband and not self.was_in_deadband:
-            self.r_hold = self.distance_from_target
-            self.pid_r.integral = 0.0
-            self.pid_r.prev_error = 0.0
-            self.pid_r_dot.integral = 0.0
-            self.pid_r_dot.prev_error = 0.0
-
-        # If in deadband, override radial velocity with a soft radius-hold PID
-        if in_deadband:
-            # same sign convention as your absolute r controller:
-            # error > 0 when you're too far (drone outside -> move inward)
-            r_hold_error = self.distance_from_target - self.r_hold
-            
-            self.vel_r = self.pid_r.compute(r_hold_error, self.dt)
-
-        # Update flags for next cycle
-        self.was_in_deadband = in_deadband
-        self.prev_relative = self.target_pose.relative
+        
 
         # Decompose velocities into x and y components
         #Radial speed
@@ -374,8 +333,6 @@ class ApproachNode(Node):
         self.target_pose.theta = (-msg.theta+90)/180*np.pi
         #self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.target_pose.v_r}, relative={self.target_pose.relative}")
         self.approach_active = True
-        if self.prev_relative is None:
-            self.prev_relative = self.target_pose.relative
 
     def estimation_callback(self, msg):
         self.estimated_target_pose = msg.pose.position
