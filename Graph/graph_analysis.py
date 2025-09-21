@@ -1,6 +1,6 @@
 # plot_cmd_resp_fixed_paths.py
 # Edit these two lines ↓↓↓
-CSV_PATH = "approach_log.csv"       # path to your logged CSV
+CSV_PATH = "approach_log_polar.csv"       # path to your logged CSV
 SAVE_PATH = "cmd_vs_resp.png"       # set to None to show instead of save
 SMOOTH_WINDOW = 1                   # >1 applies rolling mean smoothing
 
@@ -39,6 +39,8 @@ def main():
     vel_theta_meas = col("vel_theta")    # measured tangential speed (m/s)
     v_z_cmd = col("v_z")                 # commanded vertical (m/s)
     vel_z_meas = col("vel_z")            # measured vertical (m/s)
+    yaw = col("yaw")   
+    yaw_target = col("yaw_target")   
 
     # Derived responses
     v_r_resp = None
@@ -67,7 +69,7 @@ def main():
         omega_resp = smooth(omega_resp)
 
     # Build plots
-    fig, axs = plt.subplots(4, 1, figsize=(10, 12), sharex=True)
+    fig, axs = plt.subplots(5, 1, figsize=(10, 12), sharex=True)
     ax_idx = 0
 
     # Radial
@@ -77,17 +79,23 @@ def main():
         axs[ax_idx].set_ylabel("v_r [m/s]")
         axs[ax_idx].grid(True)
         axs[ax_idx].legend()
-        axs[ax_idx].set_title(f"Radial: RMSE={rmse(vel_r_cmd, v_r_resp):.3f} m/s")
         ax_idx += 1
 
     # Tangential (angular)
+    if yaw_target is not None and yaw is not None:
+        axs[ax_idx].plot(t, yaw_target, label="Yaw target[m/s]")
+        axs[ax_idx].plot(t, yaw, label="Measured yaw [m/s]")
+        axs[ax_idx].set_ylabel("yaw [rad]")
+        axs[ax_idx].grid(True)
+        axs[ax_idx].legend()
+        ax_idx += 1
+
     if v_theta_cmd is not None and omega_resp is not None:
         axs[ax_idx].plot(t, v_theta_cmd, label="Tangential command (v_theta) [m/s]")
         axs[ax_idx].plot(t, vel_theta_meas, label="Measured tangential speed [m/s]")
         axs[ax_idx].set_ylabel("v_thetha [m/s]")
         axs[ax_idx].grid(True)
         axs[ax_idx].legend()
-        axs[ax_idx].set_title(f"Tangential angular: RMSE={rmse(v_theta_cmd, omega_resp):.3f} rad/s")
         ax_idx += 1
 
     # Vertical
@@ -110,7 +118,7 @@ def main():
         axs[ax_idx].set_title("Range tracking")
         ax_idx += 1
 
-    for k in range(ax_idx, 4):
+    for k in range(ax_idx, 5):
         axs[k].set_visible(False)
 
     axs[max(ax_idx-1, 0)].set_xlabel("time [s]")

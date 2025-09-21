@@ -2,15 +2,13 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped, PoseStamped
-from std_msgs.msg import String, Float32
+from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import numpy as np
 import time
 from custom_interfaces.msg import TargetPosePolar
 from mavros_msgs.msg import PositionTarget 
-from mavros.cmd import CliClient
-from mavros_msgs.srv import MessageInterval
-from sensor_msgs.msg import Imu  
+from mavros_msgs.srv import MessageInterval 
 import math
 from zenmav.core import Zenmav
 import csv
@@ -82,44 +80,70 @@ class ApproachNode(Node):
             depth=8
         )
 
-        self.msg_interval_client = self.create_client(MessageInterval, '/mavros/set_message_interval')  
-          
-        # Set up message intervals after a short delay  
-        self.setup_timer = self.create_timer(1.0, self.setup_message_intervals)  
+        self._declare_params()
 
-        self.publisher_raw = self.create_publisher(PositionTarget, '/mavros/setpoint_raw/local', qos_profile)  
+        # --- Services (uses param flags/rates in setup_message_intervals) ---
+        self.msg_interval_client = self.create_client(MessageInterval, '/mavros/set_message_interval')
+        # run once, 1s after startup
+        self.setup_timer = self.create_timer(1.0, self.setup_message_intervals)
 
-        self.drone_position_sub = self.create_subscription(PoseStamped, '/mavros/local_position/pose', self.drone_pose_callback, qos_profile_BE)
-        self.drone_speed_sub = self.create_subscription(TwistStamped, '/mavros/local_position/velocity_local', self.drone_speed_callback, qos_profile_BE)
-        self.pose_goal_sub = self.create_subscription(TargetPosePolar, '/goal_pose_polar', self.goal_pose_callback, qos_profile)
-        self.estimated_target_sub = self.create_subscription(PoseStamped, '/estimated_target_location', self.estimation_callback, qos_profile)
-        self.activation_sub = self.create_subscription(String, '/approach_activation', self.activation_callback, qos_profile)
+        # --- Publishers / Subscribers (all topic names from params) ---
+        self.publisher_raw = self.create_publisher(
+            PositionTarget, self.topic_raw_setpoint, qos_profile
+        )
 
-        self.start_sub = self.create_subscription(  
-            String,  
-            '/controller_activation',  
-            self.controller_callback,  
-            qos_profile  
-        )    
+        self.drone_position_sub = self.create_subscription(
+            PoseStamped, self.topic_pose, self.drone_pose_callback, qos_profile_BE
+        )
+        self.drone_speed_sub = self.create_subscription(
+            TwistStamped, self.topic_vel, self.drone_speed_callback, qos_profile_BE
+        )
+        self.pose_goal_sub = self.create_subscription(
+            TargetPosePolar, self.topic_goal_polar, self.goal_pose_callback, qos_profile
+        )
+        self.estimated_target_sub = self.create_subscription(
+            PoseStamped, self.topic_estimated_target, self.estimation_callback, qos_profile
+        )
+        self.activation_sub = self.create_subscription(
+            String, self.topic_activation, self.activation_callback, qos_profile
+        )
+        self.start_sub = self.create_subscription(
+            String, self.topic_ctrl_activation, self.controller_callback, qos_profile
+        )
 
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
-        # PD Controllers for XYZ pos control by try and retry sim analysis
-        self.pid_r = PIDController(kp=2.0, ki=1.0, kd=0.5, max_i=1.0, max_output=3.0)
-        self.pid_r_abs =  PIDController(kp=2.0, ki=0.6, kd=1.2, max_i=1.2, max_output=5.0)
-        self.pid_theta = PIDController(kp=0.6, ki=0, kd=0.24)
-        self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
-        self.pid_yaw = PIDController(kp=3, ki=1, kd=0.3, max_i=0.5,  max_output=6)
+        # --- Controllers (gains/limits from params) ---
+        self.pid_r = PIDController(
+            kp=self.pid_r_kp, ki=self.pid_r_ki, kd=self.pid_r_kd,
+            max_i=self.pid_r_max_i, max_output=self.pid_r_max_out
+        )
+        self.pid_r_abs = PIDController(
+            kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
+            max_i=self.pid_rabs_max_i, max_output=self.pid_rabs_max_out
+        )
+        self.pid_theta = PIDController(
+            kp=self.pid_theta_kp, ki=self.pid_theta_ki, kd=self.pid_theta_kd,
+            max_i=self.pid_theta_max_i, max_output=self.pid_theta_max_out
+        )
+        self.pid_z = PIDController(
+            kp=self.pid_z_kp, ki=self.pid_z_ki, kd=self.pid_z_kd,
+            max_i=self.pid_z_max_i, max_output=self.pid_z_max_out
+        )
+        self.pid_yaw = PIDController(
+            kp=self.pid_yaw_kp, ki=self.pid_yaw_ki, kd=self.pid_yaw_kd,
+            max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
+        )
 
+        # --- State ---
         self.estimated_target_pose = None
         self.drone_pose = None
+        self.drone_speed = None
         self.target_pose = None
         self.last_time = None
         self.r_error = None
         self.z_error = None
         self.theta_error = None
-        self.current_time = None
-        self.last_time = None
         self.first = True
         self.r_ref = None
         self.yaw = None
@@ -127,19 +151,144 @@ class ApproachNode(Node):
         self.filtered_v_r = None
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
 
-        self.drone = Zenmav('tcp:127.0.0.1:5762')
+        # --- Backends / Logging (from params) ---
+        self.drone = Zenmav(self.zenmav_endpoint)
 
         self.csv = SimpleCSV(
-            path="approach_log.csv",
-            fields=["r","r_hold","vel_r_measured","v_r","v_theta","vel_theta","v_z","vel_z"]
-        )  
-        
+            path=self.csv_path,
+            fields=["r", "r_hold", "vel_r_measured", "v_r", "v_theta", "vel_theta", "v_z", "vel_z", "yaw", "yaw_target"]
+        )
 
-        hz = 20
-        self.alpha = 0.25
-        self.smooth_timer = self.create_timer(1/hz, self.filter_vr_callback)
+        # --- Periodic jobs ---
+        hz = 20.0  # control smoothing timer; make a param later if you want
+        self.smooth_timer = self.create_timer(1.0 / hz, self.filter_vr_callback)
+        # alpha already set from params in _declare_params() -> self.alpha
 
         self.get_logger().info("Polar positioning node started")
+
+
+        self.get_logger().info("Polar positioning node started")
+    
+    def _declare_params(self):
+        # Topics / frame
+        self.declare_parameter("topic_pose", "/mavros/local_position/pose")
+        self.declare_parameter("topic_vel", "/mavros/local_position/velocity_local")
+        self.declare_parameter("topic_goal_polar", "/goal_pose_polar")
+        self.declare_parameter("topic_estimated_target", "/estimated_target_location")
+        self.declare_parameter("topic_activation", "/approach_activation")
+        self.declare_parameter("topic_ctrl_activation", "/controller_activation")
+        self.declare_parameter("topic_raw_setpoint", "/mavros/setpoint_raw/local")
+        self.declare_parameter("frame_id", "map")
+
+        # Rates / filters
+        self.declare_parameter("alpha", 0.25)          # smoothing for v_r
+
+        # Limits
+        self.declare_parameter("centripetal_limit", 2.0)  # [m/s^2]
+
+        # CSV log
+        self.declare_parameter("csv_path", "approach_log_polar.csv")
+
+        # Zenmav / MAVLink config
+        self.declare_parameter("zenmav_endpoint", "tcp:127.0.0.1:5762")
+        self.declare_parameter("set_msg_interval", True)
+        self.declare_parameter("msg_interval_rate", 20.0)   # Hz
+
+        # PID params (flat for simplicity)
+        # r (relative mode stabilizer)
+        self.declare_parameter("pid_r_kp", 2.0)
+        self.declare_parameter("pid_r_ki", 1.0)
+        self.declare_parameter("pid_r_kd", 0.5)
+        self.declare_parameter("pid_r_max_i", 1.0)
+        self.declare_parameter("pid_r_max_out", 3.0)
+
+        # r_abs (absolute radius controller)
+        self.declare_parameter("pid_rabs_kp", 2.0)
+        self.declare_parameter("pid_rabs_ki", 0.6)
+        self.declare_parameter("pid_rabs_kd", 1.2)
+        self.declare_parameter("pid_rabs_max_i", 1.2)
+        self.declare_parameter("pid_rabs_max_out", 5.0)
+
+        # theta (angle * radius controller)
+        self.declare_parameter("pid_theta_kp", 0.6)
+        self.declare_parameter("pid_theta_ki", 0.0)
+        self.declare_parameter("pid_theta_kd", 0.24)
+        self.declare_parameter("pid_theta_max_i", 1.0)
+        self.declare_parameter("pid_theta_max_out", 3.0)
+
+        # z
+        self.declare_parameter("pid_z_kp", 0.6)
+        self.declare_parameter("pid_z_ki", 0.0)
+        self.declare_parameter("pid_z_kd", 0.35)
+        self.declare_parameter("pid_z_max_i", 1.0)
+        self.declare_parameter("pid_z_max_out", 3.0)
+
+        # yaw
+        self.declare_parameter("pid_yaw_kp", 3.0)
+        self.declare_parameter("pid_yaw_ki", 1.0)
+        self.declare_parameter("pid_yaw_kd", 0.3)
+        self.declare_parameter("pid_yaw_max_i", 0.5)
+        self.declare_parameter("pid_yaw_max_out", 6.0)
+
+        # extra bool (fixed typo)
+        self.declare_parameter("talk", True)
+
+        # ---------- variable attribution (cache values) ----------
+        gp = self.get_parameter  # short alias
+
+        # Topics / frame
+        self.topic_pose            = gp("topic_pose").value
+        self.topic_vel             = gp("topic_vel").value
+        self.topic_goal_polar      = gp("topic_goal_polar").value
+        self.topic_estimated_target= gp("topic_estimated_target").value
+        self.topic_activation      = gp("topic_activation").value
+        self.topic_ctrl_activation = gp("topic_ctrl_activation").value
+        self.topic_raw_setpoint    = gp("topic_raw_setpoint").value
+        self.frame_id              = gp("frame_id").value
+
+        # Rates / filters / limits
+        self.alpha             = float(gp("alpha").value)
+        self.centripetal_limit = float(gp("centripetal_limit").value)
+
+        # CSV / comms
+        self.csv_path         = gp("csv_path").value
+        self.zenmav_endpoint  = gp("zenmav_endpoint").value
+        self.set_msg_interval = bool(gp("set_msg_interval").value)
+        self.msg_interval_rate= float(gp("msg_interval_rate").value)
+
+        # PIDs
+        self.pid_r_kp        = float(gp("pid_r_kp").value)
+        self.pid_r_ki        = float(gp("pid_r_ki").value)
+        self.pid_r_kd        = float(gp("pid_r_kd").value)
+        self.pid_r_max_i     = float(gp("pid_r_max_i").value)
+        self.pid_r_max_out   = float(gp("pid_r_max_out").value)
+
+        self.pid_rabs_kp     = float(gp("pid_rabs_kp").value)
+        self.pid_rabs_ki     = float(gp("pid_rabs_ki").value)
+        self.pid_rabs_kd     = float(gp("pid_rabs_kd").value)
+        self.pid_rabs_max_i  = float(gp("pid_rabs_max_i").value)
+        self.pid_rabs_max_out= float(gp("pid_rabs_max_out").value)
+
+        self.pid_theta_kp    = float(gp("pid_theta_kp").value)
+        self.pid_theta_ki    = float(gp("pid_theta_ki").value)
+        self.pid_theta_kd    = float(gp("pid_theta_kd").value)
+        self.pid_theta_max_i = float(gp("pid_theta_max_i").value)
+        self.pid_theta_max_out = float(gp("pid_theta_max_out").value)
+
+        self.pid_z_kp        = float(gp("pid_z_kp").value)
+        self.pid_z_ki        = float(gp("pid_z_ki").value)
+        self.pid_z_kd        = float(gp("pid_z_kd").value)
+        self.pid_z_max_i     = float(gp("pid_z_max_i").value)
+        self.pid_z_max_out   = float(gp("pid_z_max_out").value)
+
+        self.pid_yaw_kp      = float(gp("pid_yaw_kp").value)
+        self.pid_yaw_ki      = float(gp("pid_yaw_ki").value)
+        self.pid_yaw_kd      = float(gp("pid_yaw_kd").value)
+        self.pid_yaw_max_i   = float(gp("pid_yaw_max_i").value)
+        self.pid_yaw_max_out = float(gp("pid_yaw_max_out").value)
+
+        self.talk            = bool(gp("talk").value)
+
 
     def setup_message_intervals(self):
         if True:
@@ -255,11 +404,11 @@ class ApproachNode(Node):
 
         # hdg_deg: 0 = North, +CW (aircraft heading)
         hdg_deg = self.drone.get_global_pos(heading=True).hdg
-        yaw_enu = ((math.radians(90.0 - hdg_deg) + math.pi) % (2*math.pi)) - math.pi   # [-pi, pi]
+        self.yaw_enu = ((math.radians(90.0 - hdg_deg) + math.pi) % (2*math.pi)) - math.pi   # [-pi, pi]
           
-        angle_towards_target_rad = np.arctan2(delta_y, delta_x)  
+        self.angle_towards_target_rad = np.arctan2(delta_y, delta_x)  
 
-        self.error_yaw = wrap_pi(angle_towards_target_rad - yaw_enu)
+        self.error_yaw = wrap_pi(self.angle_towards_target_rad - self.yaw_enu)
         
         self.compute_commands()
 
@@ -287,10 +436,11 @@ class ApproachNode(Node):
             self.vel_z = self.pid_z.compute(self.z_error, self.dt)
             self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt)
 
-        self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
+        if self.talk:
+            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
 
         #Centrepedial acceleration limit
-        if self.v_theta**2/self.distance_from_target > 2.0:
+        if self.v_theta**2/self.distance_from_target > self.centripetal_limit:
             self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
 
         # Decompose velocities into x and y components
@@ -307,9 +457,10 @@ class ApproachNode(Node):
         #Angle PID to close in on target angle
         self.yaw_rate = self.pid_yaw.compute(self.error_yaw, self.dt)
 
+
         #Feed forward a rate to keep same pose relative to trajectory
         yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target
-        self.yaw_rate += - yaw_feed_forward if self.filtered_v_r > 0 else yaw_feed_forward
+        self.yaw_rate += - yaw_feed_forward if self.tangential_speed_measured > 0 else yaw_feed_forward
 
         self.csv.log(
             r=getattr(self, "distance_from_target", float("nan")),
@@ -320,6 +471,8 @@ class ApproachNode(Node):
             vel_theta=getattr(self, "tangential_speed_measured", float("nan")),
             v_z=getattr(self, "vel_z", float("nan")),
             vel_z=(getattr(self.drone_speed, "z", float("nan")) if hasattr(self, "drone_speed") else float("nan")),
+            yaw = self.yaw_enu,
+            yaw_target = self.angle_towards_target_rad
         )
         
         self.send_commands()
@@ -376,8 +529,8 @@ class ApproachNode(Node):
           
         self.publisher_raw.publish(target)
 
-
-        self.get_logger().info(f"Temps de traitement : {time.time()- self.start_time:.4f}")
+        if self.talk:
+            self.get_logger().info(f"Temps de traitement : {time.time()- self.start_time:.4f}")
     
     def drone_speed_callback(self, msg):
         self.drone_speed = msg.twist.linear
@@ -387,9 +540,12 @@ class ApproachNode(Node):
             return 
         
         if self.filtered_v_r is not None:
-            self.filtered_v_r = self.filtered_v_r*(1-self.alpha) + self.target_pose.v_r*self.alpha
+            max_rate = self.alpha   # m/s per iteration
+            delta = self.target_pose.v_r - self.filtered_v_r
+            delta = np.clip(delta, -max_rate, max_rate)
+            self.filtered_v_r += delta
         else:
-            self.filtered_v_r = self.target_pose.v_r
+            self.filtered_v_r = 0
 
     def goal_pose_callback(self, msg):
         self.target_pose = msg

@@ -22,7 +22,8 @@ setup(
         'console_scripts': [
             'position = polar.position:main',
             'teleop = polar.teleop:main',
-            'look_inwards = polar.look_target:main',
+            'one_shot_fake_target = polar.one_shot_fake_target:main',
+            'controller_interface = polar.controller_interface:main',
         ],
     },
 )
