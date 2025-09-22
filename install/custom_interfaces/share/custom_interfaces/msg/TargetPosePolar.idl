@@ -1,0 +1,25 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from custom_interfaces/msg/TargetPosePolar.msg
+// generated code does not contain a copyright notice
+
+#include "std_msgs/msg/Header.idl"
+
+module custom_interfaces {
+  module msg {
+    struct TargetPosePolar {
+      std_msgs::msg::Header header;
+
+      float r;
+
+      float theta;
+
+      float z;
+
+      boolean relative;
+
+      float v_r;
+
+      float v_theta;
+    };
+  };
+};

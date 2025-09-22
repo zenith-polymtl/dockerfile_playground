@@ -1,0 +1,32 @@
+/home/colin/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:289: UserWarning: Unknown distribution option: 'tests_require'
+  warnings.warn(msg)
+running egg_info
+writing ../../../build/polar/polar.egg-info/PKG-INFO
+writing dependency_links to ../../../build/polar/polar.egg-info/dependency_links.txt
+writing entry points to ../../../build/polar/polar.egg-info/entry_points.txt
+writing requirements to ../../../build/polar/polar.egg-info/requires.txt
+writing top-level names to ../../../build/polar/polar.egg-info/top_level.txt
+reading manifest file '../../../build/polar/polar.egg-info/SOURCES.txt'
+writing manifest file '../../../build/polar/polar.egg-info/SOURCES.txt'
+running build
+running build_py
+copying polar/target_pose_estimator.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+copying polar/position.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+copying polar/teleop.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+copying polar/__init__.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+copying polar/look_target.py -> /home/colin/dockerfile_playground/build/polar/build/lib/polar
+running install
+running install_lib
+copying /home/colin/dockerfile_playground/build/polar/build/lib/polar/look_target.py -> /home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar
+byte-compiling /home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar/look_target.py to look_target.cpython-310.pyc
+running install_data
+copying resource/polar -> /home/colin/dockerfile_playground/install/polar/share/ament_index/resource_index/packages
+copying package.xml -> /home/colin/dockerfile_playground/install/polar/share/polar
+running install_egg_info
+removing '/home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar-0.0.0-py3.10.egg-info' (and everything under it)
+Copying ../../../build/polar/polar.egg-info to /home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar-0.0.0-py3.10.egg-info
+running install_scripts
+Installing look_inwards script to /home/colin/dockerfile_playground/install/polar/lib/polar
+Installing position script to /home/colin/dockerfile_playground/install/polar/lib/polar
+Installing teleop script to /home/colin/dockerfile_playground/install/polar/lib/polar
+writing list of installed files to '/home/colin/dockerfile_playground/build/polar/install.log'

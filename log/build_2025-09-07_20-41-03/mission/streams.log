@@ -1,0 +1,101 @@
+[1.632s] Invoking command in '/home/colin/dockerfile_playground/ros2_ws/src/mission': AMENT_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces LD_LIBRARY_PATH=/home/colin/dockerfile_playground/install/custom_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/colin/dockerfile_playground/build/mission/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages:/home/colin/dockerfile_playground/install/custom_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/mission build --build-base /home/colin/dockerfile_playground/build/mission/build install --record /home/colin/dockerfile_playground/build/mission/install.log --single-version-externally-managed install_data
+[1.870s] /home/colin/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:289: UserWarning: Unknown distribution option: 'tests_require'
+[1.870s]   warnings.warn(msg)
+[1.990s] running egg_info
+[2.012s] creating ../../../build/mission/mission.egg-info
+[2.013s] writing ../../../build/mission/mission.egg-info/PKG-INFO
+[2.014s] writing dependency_links to ../../../build/mission/mission.egg-info/dependency_links.txt
+[2.014s] writing entry points to ../../../build/mission/mission.egg-info/entry_points.txt
+[2.015s] writing requirements to ../../../build/mission/mission.egg-info/requires.txt
+[2.015s] writing top-level names to ../../../build/mission/mission.egg-info/top_level.txt
+[2.015s] writing manifest file '../../../build/mission/mission.egg-info/SOURCES.txt'
+[2.040s] reading manifest file '../../../build/mission/mission.egg-info/SOURCES.txt'
+[2.041s] writing manifest file '../../../build/mission/mission.egg-info/SOURCES.txt'
+[2.042s] running build
+[2.042s] running build_py
+[2.042s] [DEBUG] Generating interface from: /home/colin/dockerfile_playground/ros2_ws/src/mission/mission/control_interface/control_config.json
+[2.052s] [DEBUG] Successfully generated: /home/colin/dockerfile_playground/ros2_ws/src/mission/mission/control_interface/index.html
+[2.053s] creating /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.056s] copying mission/abort_brake_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.056s] copying mission/web_manual_control_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.057s] copying mission/drop.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.057s] copying mission/machine_vision.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.058s] copying mission/state_node_advanced.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.058s] copying mission/approach_node_raw.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.058s] copying mission/other_machine_vision.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.059s] copying mission/__init__.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.059s] copying mission/cam2.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.059s] copying mission/graph_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.060s] copying mission/approach_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.060s] copying mission/valve_control.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.061s] copying mission/target_publisher_node.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.061s] copying mission/cam_pub.py -> /home/colin/dockerfile_playground/build/mission/build/lib/mission
+[2.062s] creating /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface
+[2.063s] copying mission/control_interface/index.html -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface
+[2.063s] copying mission/control_interface/control_config.json -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface
+[2.064s] creating /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static
+[2.064s] copying mission/control_interface/static/style.css -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static
+[2.065s] copying mission/control_interface/static/index.js -> /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static
+[2.066s] running install
+[2.070s] running install_lib
+[2.092s] creating /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.093s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/abort_brake_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.093s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/web_manual_control_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.094s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/drop.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.094s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/machine_vision.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.094s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/state_node_advanced.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.095s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/approach_node_raw.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.095s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/other_machine_vision.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.095s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/__init__.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.095s] creating /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface
+[2.096s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/index.html -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface
+[2.096s] creating /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface/static
+[2.097s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static/style.css -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface/static
+[2.097s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/static/index.js -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface/static
+[2.097s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/control_interface/control_config.json -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/control_interface
+[2.098s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/cam2.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.098s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/graph_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.098s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/approach_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.098s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/valve_control.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.098s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/target_publisher_node.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.099s] copying /home/colin/dockerfile_playground/build/mission/build/lib/mission/cam_pub.py -> /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission
+[2.099s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/abort_brake_node.py to abort_brake_node.cpython-310.pyc
+[2.101s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/web_manual_control_node.py to web_manual_control_node.cpython-310.pyc
+[2.103s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/drop.py to drop.cpython-310.pyc
+[2.105s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/machine_vision.py to machine_vision.cpython-310.pyc
+[2.106s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/state_node_advanced.py to state_node_advanced.cpython-310.pyc
+[2.109s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/approach_node_raw.py to approach_node_raw.cpython-310.pyc
+[2.110s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/other_machine_vision.py to other_machine_vision.cpython-310.pyc
+[2.111s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/__init__.py to __init__.cpython-310.pyc
+[2.111s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/cam2.py to cam2.cpython-310.pyc
+[2.112s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/graph_node.py to graph_node.cpython-310.pyc
+[2.113s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/approach_node.py to approach_node.cpython-310.pyc
+[2.114s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/valve_control.py to valve_control.cpython-310.pyc
+[2.115s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/target_publisher_node.py to target_publisher_node.cpython-310.pyc
+[2.116s] byte-compiling /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission/cam_pub.py to cam_pub.cpython-310.pyc
+[2.117s] running install_data
+[2.118s] creating /home/colin/dockerfile_playground/install/mission/share/ament_index/resource_index/packages
+[2.119s] copying resource/mission -> /home/colin/dockerfile_playground/install/mission/share/ament_index/resource_index/packages
+[2.120s] copying package.xml -> /home/colin/dockerfile_playground/install/mission/share/mission
+[2.120s] creating /home/colin/dockerfile_playground/install/mission/share/mission/msg
+[2.121s] creating /home/colin/dockerfile_playground/install/mission/share/mission/control_interface
+[2.121s] copying mission/control_interface/index.html -> /home/colin/dockerfile_playground/install/mission/share/mission/control_interface
+[2.122s] creating /home/colin/dockerfile_playground/install/mission/share/mission/control_interface/static
+[2.122s] copying mission/control_interface/static/style.css -> /home/colin/dockerfile_playground/install/mission/share/mission/control_interface/static
+[2.123s] copying mission/control_interface/static/index.js -> /home/colin/dockerfile_playground/install/mission/share/mission/control_interface/static
+[2.123s] running install_egg_info
+[2.145s] Copying ../../../build/mission/mission.egg-info to /home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages/mission-0.0.0-py3.10.egg-info
+[2.147s] running install_scripts
+[2.197s] Installing abort script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.198s] Installing approach script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.198s] Installing approach_raw script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.198s] Installing camera script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.198s] Installing control script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.199s] Installing graph script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.199s] Installing state script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.199s] Installing targets script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.199s] Installing valve script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.199s] Installing vision script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.200s] Installing water script to /home/colin/dockerfile_playground/install/mission/lib/mission
+[2.200s] writing list of installed files to '/home/colin/dockerfile_playground/build/mission/install.log'
+[2.240s] Invoked command in '/home/colin/dockerfile_playground/ros2_ws/src/mission' returned '0': AMENT_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/colin/dockerfile_playground/install/custom_interfaces LD_LIBRARY_PATH=/home/colin/dockerfile_playground/install/custom_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/colin/dockerfile_playground/build/mission/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/colin/dockerfile_playground/install/mission/lib/python3.10/site-packages:/home/colin/dockerfile_playground/install/custom_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/mission build --build-base /home/colin/dockerfile_playground/build/mission/build install --record /home/colin/dockerfile_playground/build/mission/install.log --single-version-externally-managed install_data

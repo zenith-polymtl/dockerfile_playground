@@ -1,11 +1,8 @@
-# syntax=docker/dockerfile:1.6
-ARG ROS_DISTRO=humble
-FROM --platform=$TARGETPLATFORM ros:${ROS_DISTRO}-ros-base
+
 # syntax=docker/dockerfile:1.6
 ARG ROS_DISTRO=humble
 FROM --platform=$TARGETPLATFORM ros:${ROS_DISTRO}-ros-base
 
-ARG TARGETPLATFORM
 ARG TARGETPLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -95,7 +92,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     && add-apt-repository universe
 
-# Install libcamera and bindings
+# Install Dependencies for libcamera
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    python3-pip \
+    python3-jinja2 \
+    libboost-dev \
+    libgnutls28-dev \
+    openssl \
+    libtiff-dev \
+    pybind11-dev \
+    ninja-build \
+    pkg-config \
+    python3-yaml \
+    python3-ply \
+    libglib2.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    libyaml-dev \
+    libssl-dev \
+    libevent-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Update Meson to a newer version (required for libcamera)
+RUN python3 -m pip install --upgrade meson
+
+# Install colcon-meson for building libcamera in the workspace
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-colcon-meson \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build raspberrypi's libcamera fork
+RUN git clone https://github.com/raspberrypi/libcamera.git \
+    && cd libcamera \
+    && meson setup build --buildtype=release -Dpipelines=rpi/vc4,rpi/pisp -Dipas=rpi/vc4,rpi/pisp -Dv4l2=true -Dgstreamer=enabled -Dtest=false -Dlc-compliance=disabled -Dcam=disabled -Dqcam=disabled -Ddocumentation=disabled -Dpycamera=enabled \
+    && ninja -C build install
+
+# Install libcamera and bindings (this might be redundant now, but keeping for safety)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcamera-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -163,11 +195,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 RUN pip install --no-cache-dir matplotlib
 RUN pip install --no-cache-dir pandas
+
+RUN apt-get update && apt-get install -y \
+    ros-$ROS_DISTRO-joy \
+    ros-$ROS_DISTRO-teleop-twist-joy \
+ && rm -rf /var/lib/apt/lists/*
+ 
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
 
+# Clone and build the camera_ros node
+RUN mkdir -p /ros2_ws/src \
+    && cd /ros2_ws/src \
+    && git clone https://github.com/christianrauch/camera_ros.git
+
+# Install additional dependencies for camera_ros
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-camera-info-manager \
+    ros-humble-cv-bridge \
+    && rm -rf /var/lib/apt/lists/*
+
+# Try to install dependencies with rosdep, but skip libcamera
+# If this fails, we'll continue with the build anyway
+RUN ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && rosdep install -y --from-paths src --ignore-src --rosdistro humble --skip-keys libcamera || true"]
+
 # Build the workspace using bash explicitly
-RUN ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && colcon build"]
+RUN ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && colcon build --event-handlers=console_direct+"]
 
 # Add sourcing to .bashrc using bash
 RUN ["/bin/bash", "-c", "echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc"]

@@ -1,0 +1,4 @@
+[console_scripts]
+look_inwards = polar.look_target:main
+position = polar.position:main
+teleop = polar.teleop:main
