@@ -127,14 +127,18 @@ class DroneWebControl(Node):
             with open(self.html_path, 'r', encoding='utf-8') as file:
                 html_content = file.read()
             
-            # Add cache-busting to CSS files
+            # CACHE BUSTING TO COMMENT IF NO CHANGES ARE MADE TO CSS/JS
             import time
             css_version = int(time.time())
             html_content = html_content.replace(
                 'href="static/css/',
                 f'href="static/css/?v={css_version}"'
             )
-            
+            html_content = html_content.replace(
+                'src="static/index.js"',
+                f'src="static/index.js?v={css_version}"'
+            )
+
             return HTMLResponse(content=html_content, status_code=200)
 
     async def process_web_command(self, body):

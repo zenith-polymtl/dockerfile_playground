@@ -37,20 +37,20 @@ class DroneWebControl(Node):
         self.control_subscribers = {}
         self.sensor_data = {}
         
-        self.control_publishers['/approach_target_graph'] = self.create_publisher(String, '/approach_target_graph', qos_profile)
-        self.control_publishers['/valve_state'] = self.create_publisher(String, '/valve_state', 10)
-        self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
+        self.control_publishers['/go_bucket_valve'] = self.create_publisher(String, '/go_bucket_valve', 10)
+        self.control_publishers['/bucket_number'] = self.create_publisher(Int32, '/bucket_number', 10)
         self.control_publishers['/go_winch'] = self.create_publisher(String, '/go_winch', 10)
         self.control_publishers['/battery_changed'] = self.create_publisher(String, '/battery_changed', 10)
-        self.control_publishers['/confirm_arming'] = self.create_publisher(String, '/confirm_arming', 10)
+        self.control_publishers['/valve_state'] = self.create_publisher(String, '/valve_state', 10)
         self.control_publishers['/go_vision'] = self.create_publisher(String, '/go_vision', 10)
-        self.control_publishers['/bucket_number'] = self.create_publisher(Int32, '/bucket_number', 10)
-        self.control_publishers['/go_bucket_valve'] = self.create_publisher(String, '/go_bucket_valve', 10)
+        self.control_publishers['/confirm_arming'] = self.create_publisher(String, '/confirm_arming', 10)
+        self.control_publishers['/approach_target_graph'] = self.create_publisher(String, '/approach_target_graph', qos_profile)
+        self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
         
-        self.control_subscribers['/water_qty'] = self.create_subscription(Int32, '/water_qty', self.water_qty_callback, 10)
-        self.sensor_data['/water_qty'] = 0
         self.control_subscribers['/torque'] = self.create_subscription(Float32, '/torque', self.torque_callback, 10)
         self.sensor_data['/torque'] = 0
+        self.control_subscribers['/water_qty'] = self.create_subscription(Int32, '/water_qty', self.water_qty_callback, 10)
+        self.sensor_data['/water_qty'] = 0
         
         # Web interface components
         self.active_connections: Set[WebSocket] = set()
@@ -80,19 +80,18 @@ class DroneWebControl(Node):
         # Start webview
         self.start_webview()
 
-    def water_qty_callback(self, msg):
-        self.sensor_data['/water_qty'] = msg.data
-        self.schedule_async_task(self.broadcast_sensor_data())
-
     def torque_callback(self, msg):
         self.sensor_data['/torque'] = msg.data
+        self.schedule_async_task(self.broadcast_sensor_data())
+
+    def water_qty_callback(self, msg):
+        self.sensor_data['/water_qty'] = msg.data
         self.schedule_async_task(self.broadcast_sensor_data())
 
     def schedule_async_task(self, coro):
         asyncio.run_coroutine_threadsafe(coro, self.loop)
 
     async def broadcast_sensor_data(self):
-        self.get_logger().debug(f"Broadcasting sensor data: {self.sensor_data}")
         message = json.dumps({
             'type': 'sensor_data',
             'data': self.sensor_data
@@ -142,14 +141,18 @@ class DroneWebControl(Node):
             with open(self.html_path, 'r', encoding='utf-8') as file:
                 html_content = file.read()
             
-            # Add cache-busting to CSS files
+            # CACHE BUSTING TO COMMENT IF NO CHANGES ARE MADE TO CSS/JS
             import time
             css_version = int(time.time())
             html_content = html_content.replace(
                 'href="static/css/',
                 f'href="static/css/?v={css_version}"'
             )
-            
+            html_content = html_content.replace(
+                'src="static/index.js"',
+                f'src="static/index.js?v={css_version}"'
+            )
+
             return HTMLResponse(content=html_content, status_code=200)
 
     async def process_web_command(self, body):
