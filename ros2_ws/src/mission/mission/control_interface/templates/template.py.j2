@@ -144,9 +144,21 @@ class DroneWebControl(Node):
             if message['type'] == 'command':
                 command = message['command']
                 data = message.get('data')
+                topic_type = message.get('topicType')
+                self.get_logger().info(f"Received command: {command}, data: {data}, topicType: {topic_type}")
                 if command in self.control_publishers:
-                    msg = String() if not command.endswith('bucket_number') else Int32()
-                    msg.data = data if data else command
+                    if data:
+                        if topic_type == 'String':
+                            msg = String()
+                        elif topic_type == 'Int32':
+                            msg = Int32()
+                            data = int(data)
+                        elif topic_type == 'Float32':
+                            msg = Float32()
+                            data = float(data)
+                        msg.data = data
+                    else:
+                        msg.data = command
                     self.control_publishers[command].publish(msg)
                     await self.send_terminal_message(f"Command executed: {command} with data: {data}")
                 else:

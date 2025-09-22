@@ -14,11 +14,11 @@
             <h2>System Control</h2>
             <div class="button-group">
                 
-                <button class="battery-btn" onclick="sendCommand('/battery_changed', 'CHANGED')">Battery Changed</button>
+                <button class="battery-btn" onclick="sendCommand('/battery_changed', 'CHANGED', 'String')">Battery Changed</button>
                 
-                <button class="abort-btn" onclick="sendCommand('/abort_brake', 'a.b.')">EMERGENCY ABORT</button>
+                <button class="abort-btn" onclick="sendCommand('/abort_brake', 'a.b.', 'String')">EMERGENCY ABORT</button>
                 
-                <button class="arm-btn" onclick="sendCommand('/confirm_arming', 'ARM')">ARM & AUTHORIZE TAKEOFF</button>
+                <button class="arm-btn" onclick="sendCommand('/confirm_arming', 'ARM', 'String')">ARM & AUTHORIZE TAKEOFF</button>
                 
             </div>
         </div>
@@ -29,9 +29,9 @@
                 <h2>Vision Control</h2>
                 <div class="button-group">
                     
-                    <button onclick="sendCommand('/go_vision', 'SOURCE')">Source Search</button>
+                    <button onclick="sendCommand('/go_vision', 'SOURCE', 'String')">Source Search</button>
                     
-                    <button onclick="sendCommand('/go_vision', 'BUCKET')">Bucket Search</button>
+                    <button onclick="sendCommand('/go_vision', 'BUCKET', 'String')">Bucket Search</button>
                     
                 </div>
                 
@@ -49,14 +49,16 @@
                     
                         <button type="button" 
                                 class="button-radio" 
-                                data-command="/approach_target_graph" 
+                                data-command="/approach_target_graph"
+                                data-topic-type="String"
                                 onclick="selectRadioButton(this, 'Approach_Mode')">
                             Manual Mode
                         </button>
                     
                         <button type="button" 
                                 class="button-radio" 
-                                data-command="/approach_target_graph" 
+                                data-command="/approach_target_graph"
+                                data-topic-type="String"
                                 onclick="selectRadioButton(this, 'Approach_Mode')">
                             Auto Mode
                         </button>
@@ -71,9 +73,9 @@
                 <h2>Winch Control</h2>
                 <div class="button-group">
                     
-                    <button onclick="sendCommand('/go_winch', 'DOWN!')">Winch Down</button>
+                    <button onclick="sendCommand('/go_winch', 'DOWN!', 'String')">Winch Down</button>
                     
-                    <button onclick="sendCommand('/go_winch', 'UP')">Winch Up</button>
+                    <button onclick="sendCommand('/go_winch', 'UP', 'String')">Winch Up</button>
                     
                 </div>
                 
@@ -85,13 +87,13 @@
                 <h2>Water System</h2>
                 <div class="button-group">
                     
-                    <button onclick="sendCommand('/go_bucket_valve', 'REFILL')">Refill Water</button>
+                    <button onclick="sendCommand('/go_bucket_valve', 'REFILL', 'String')">Refill Water</button>
                     
-                    <button onclick="sendCommand('/go_bucket_valve', 'RELEASE')">Release Water</button>
+                    <button onclick="sendCommand('/go_bucket_valve', 'RELEASE', 'String')">Release Water</button>
                     
-                    <button onclick="sendCommand('/valve_state', 'OPEN')">Open Valve</button>
+                    <button onclick="sendCommand('/valve_state', 'OPEN', 'String')">Open Valve</button>
                     
-                    <button onclick="sendCommand('/valve_state', 'CLOSE')">Close Valve</button>
+                    <button onclick="sendCommand('/valve_state', 'CLOSE', 'String')">Close Valve</button>
                     
                 </div>
                 
@@ -100,7 +102,7 @@
                     
                     <label>Buckets:</label>
                     <input type="number" id="bucketNumber" min="1" value="1">
-                    <button onclick="setAmount('bucketNumber', '/bucket_number', '')" style="min-width: 80px;">Set</button>
+                    <button onclick="setAmount('bucketNumber', '/bucket_number', 'Int32')" style="min-width: 80px;">Set</button>
                     
                 </div>
                 

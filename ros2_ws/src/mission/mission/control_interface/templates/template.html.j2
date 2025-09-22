@@ -14,7 +14,7 @@
             <h2>{{ sidebar.title }}</h2>
             <div class="button-group">
                 {% for button in sidebar.buttons %}
-                <button class="{{ button.class }}" onclick="sendCommand('{{ button.command }}', '{{ button.data }}')">{{ button.text }}</button>
+                <button class="{{ button.class }}" onclick="sendCommand('{{ button.command }}', '{{ button.data }}', '{{ button.topicType }}')">{{ button.text }}</button>
                 {% endfor %}
             </div>
         </div>
@@ -25,7 +25,7 @@
                 <h2>{{ section.title }}</h2>
                 <div class="button-group">
                     {% for button in section.buttons %}
-                    <button onclick="sendCommand('{{ button.command }}', '{{ button.data }}')">{{ button.text }}</button>
+                    <button onclick="sendCommand('{{ button.command }}', '{{ button.data }}', '{{ button.topicType }}')">{{ button.text }}</button>
                     {% endfor %}
                 </div>
                 {% if section.radio %}
@@ -33,7 +33,8 @@
                     {% for radio in section.radio %}
                         <button type="button" 
                                 class="button-radio" 
-                                data-command="{{ radio.command }}" 
+                                data-command="{{ radio.command }}"
+                                data-topic-type="{{ radio.topicType }}"
                                 onclick="selectRadioButton(this, '{{ section.title | replace(' ', '_') }}')">
                             {{ radio.text }}
                         </button>
@@ -45,7 +46,7 @@
                     {% for input in section.inputs %}
                     <label>{{ input.label }}</label>
                     <input type="{{ input.type }}" id="{{ input.id }}" min="{{ input.min }}" value="{{ input.value }}">
-                    <button onclick="setAmount('{{ input.id }}', '{{ input.command }}', '{{ input.data }}')" style="min-width: 80px;">Set</button>
+                    <button onclick="setAmount('{{ input.id }}', '{{ input.command }}', '{{ input.topicType }}')" style="min-width: 80px;">Set</button>
                     {% endfor %}
                 </div>
                 {% endif %}
