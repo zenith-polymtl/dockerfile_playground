@@ -37,20 +37,20 @@ class DroneWebControl(Node):
         self.control_subscribers = {}
         self.sensor_data = {}
         
-        self.control_publishers['/go_winch'] = self.create_publisher(String, '/go_winch', 10)
-        self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
         self.control_publishers['/go_vision'] = self.create_publisher(String, '/go_vision', 10)
         self.control_publishers['/approach_target_graph'] = self.create_publisher(String, '/approach_target_graph', qos_profile)
         self.control_publishers['/bucket_number'] = self.create_publisher(Int32, '/bucket_number', 10)
-        self.control_publishers['/battery_changed'] = self.create_publisher(String, '/battery_changed', 10)
-        self.control_publishers['/valve_state'] = self.create_publisher(String, '/valve_state', 10)
+        self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
         self.control_publishers['/go_bucket_valve'] = self.create_publisher(String, '/go_bucket_valve', 10)
         self.control_publishers['/confirm_arming'] = self.create_publisher(String, '/confirm_arming', 10)
+        self.control_publishers['/battery_changed'] = self.create_publisher(String, '/battery_changed', 10)
+        self.control_publishers['/go_winch'] = self.create_publisher(String, '/go_winch', 10)
+        self.control_publishers['/valve_state'] = self.create_publisher(String, '/valve_state', 10)
         
-        self.control_subscribers['/torque'] = self.create_subscription(Float32, '/torque', self.torque_callback, 10)
-        self.sensor_data['/torque'] = 0
         self.control_subscribers['/water_qty'] = self.create_subscription(Int32, '/water_qty', self.water_qty_callback, 10)
         self.sensor_data['/water_qty'] = 0
+        self.control_subscribers['/torque'] = self.create_subscription(Float32, '/torque', self.torque_callback, 10)
+        self.sensor_data['/torque'] = 0
         
         # Web interface components
         self.active_connections: Set[WebSocket] = set()
@@ -80,14 +80,14 @@ class DroneWebControl(Node):
         # Start webview
         self.start_webview()
 
-    def torque_callback(self, msg):
-        """Callback for /torque topic"""
-        self.sensor_data['/torque'] = msg.data
-        self.schedule_async_task(self.broadcast_sensor_data())
-
     def water_qty_callback(self, msg):
         """Callback for /water_qty topic"""
         self.sensor_data['/water_qty'] = msg.data
+        self.schedule_async_task(self.broadcast_sensor_data())
+
+    def torque_callback(self, msg):
+        """Callback for /torque topic"""
+        self.sensor_data['/torque'] = msg.data
         self.schedule_async_task(self.broadcast_sensor_data())
 
     def schedule_async_task(self, coro):
@@ -168,14 +168,12 @@ class DroneWebControl(Node):
                         elif topic_type == 'Int32':
                             msg = Int32()
                             data = int(data)
-                            self.get_logger().info(f"Converted data to Int32: {data}")
-                            value_check = str(isinstance(data, int))
-                            self.get_logger().info(value_check)
                         elif topic_type == 'Float32':
                             msg = Float32()
                             data = float(data)
                         msg.data = data
                     else:
+                        msg = String()
                         msg.data = command
                     self.control_publishers[command].publish(msg)
                     await self.send_terminal_message(f"Command executed: {command} with data: {data}")

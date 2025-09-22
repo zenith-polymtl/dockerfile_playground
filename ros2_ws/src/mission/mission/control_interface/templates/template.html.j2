@@ -34,6 +34,7 @@
                         <button type="button" 
                                 class="button-radio" 
                                 data-command="{{ radio.command }}"
+                                data-value="{{ radio.data }}"
                                 data-topic-type="{{ radio.topicType }}"
                                 onclick="selectRadioButton(this, '{{ section.title | replace(' ', '_') }}')">
                             {{ radio.text }}

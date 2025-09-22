@@ -72,5 +72,6 @@ function selectRadioButton(button) {
   const command = button.getAttribute('data-command');
   const value = button.getAttribute('data-value');
   const topicType = button.getAttribute('data-topic-type');
+  console.log(`Radio button selected: ${command} with value: ${value} and topicType: ${topicType}`);
   sendCommand(command, value, topicType);
 }

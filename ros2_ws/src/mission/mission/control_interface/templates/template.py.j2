@@ -158,6 +158,7 @@ class DroneWebControl(Node):
                             data = float(data)
                         msg.data = data
                     else:
+                        msg = String()
                         msg.data = command
                     self.control_publishers[command].publish(msg)
                     await self.send_terminal_message(f"Command executed: {command} with data: {data}")
