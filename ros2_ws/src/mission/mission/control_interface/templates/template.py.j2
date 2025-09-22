@@ -138,18 +138,17 @@ class DroneWebControl(Node):
             
             return HTMLResponse(content=html_content, status_code=200)
 
-    async def process_web_command(self, data):
+    async def process_web_command(self, body):
         try:
-            message = json.loads(data)
+            message = json.loads(body)
             if message['type'] == 'command':
                 command = message['command']
                 data = message.get('data')
-                
                 if command in self.control_publishers:
                     msg = String() if not command.endswith('bucket_number') else Int32()
                     msg.data = data if data else command
                     self.control_publishers[command].publish(msg)
-                    await self.send_terminal_message(f"Command executed: {command}")
+                    await self.send_terminal_message(f"Command executed: {command} with data: {data}")
                 else:
                     await self.send_terminal_message(f"Unknown command: {command}")
         except Exception as e:

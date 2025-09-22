@@ -50,7 +50,7 @@
     },
     {
       "title": "Approach Mode",
-      "buttons": [
+      "radio": [
         {
           "text": "Manual Mode",
           "command": "/approach_target_graph",

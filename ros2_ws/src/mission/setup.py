@@ -47,6 +47,14 @@ def generate_files():
         
         # Collect publishers from all sections
         for section in config['control_sections']:
+            if 'radio' in section:
+                for radio in section['radio']:
+                    publisher_radio = (
+                        radio['command'],
+                        types[radio['topicType']],
+                        radio['qosProfile'],
+                    )
+                    publishers.add(publisher_radio)
             if 'buttons' in section:
                 for button in section['buttons']:
                     publisher_button = (

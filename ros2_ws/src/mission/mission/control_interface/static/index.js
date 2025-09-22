@@ -42,18 +42,33 @@ ws.onclose = () => {
 ws.onerror = (error) => {
     addTerminalOutput(`<span class="timestamp">[ERROR]</span> ${error.message}`);
 };
-
-function sendCommand(command) {
-    ws.send(JSON.stringify({ type: 'command', command: command }));
+function sendCommand(command, data='') {
+  ws.send(JSON.stringify({ 
+    type: 'command', 
+    command: command,
+    data: data
+  }));
 }
 
-function setAmount(id, command) {
+function setAmount(id, command, data='') {
     const amount = document.getElementById(id).value;
     if (amount) {
         ws.send(JSON.stringify({ 
             type: 'command', 
             command,
-            data: amount 
+            data: data,
+            amount: amount 
         }));
     }
+}
+
+function selectRadioButton(button) {
+  const parent = button.parentElement;
+  [...parent.children].forEach(sib => sib.classList.remove('selected'));
+
+  button.classList.add('selected');
+
+  const command = button.getAttribute('data-command');
+  const value = button.getAttribute('data-value');
+  sendCommand(command, value);
 }
