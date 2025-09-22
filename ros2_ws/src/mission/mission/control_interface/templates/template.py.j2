@@ -145,10 +145,10 @@ class DroneWebControl(Node):
                 command = message['command']
                 data = message.get('data')
                 
-                if command in self.control_publishers:  # Changed to use control_publishers directly
+                if command in self.control_publishers:
                     msg = String() if not command.endswith('bucket_number') else Int32()
-                    msg.data = data if data else command.split('/')[-1].upper()
-                    self.control_publishers[command.split('/')[-1]].publish(msg)
+                    msg.data = data if data else command
+                    self.control_publishers[command].publish(msg)
                     await self.send_terminal_message(f"Command executed: {command}")
                 else:
                     await self.send_terminal_message(f"Unknown command: {command}")
