@@ -71,7 +71,6 @@ class DroneWebControl(Node):
         self.start_webview()
 {% for sub in subscribers %}
     def {{ sub[0].split('/')[-1] }}_callback(self, msg):
-        """Callback for {{ sub[0] }} topic"""
         self.sensor_data['{{ sub[0] }}'] = msg.data
         self.schedule_async_task(self.broadcast_sensor_data())
 {% endfor %}
