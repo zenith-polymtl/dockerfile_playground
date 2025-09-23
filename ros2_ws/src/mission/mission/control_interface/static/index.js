@@ -75,3 +75,11 @@ function selectRadioButton(button) {
   console.log(`Radio button selected: ${command} with value: ${value} and topicType: ${topicType}`);
   sendCommand(command, value, topicType);
 }
+
+function toggleTerminal() {
+    const terminalArea = document.querySelector('.terminal-area');
+    const mainContainer = document.querySelector('.main-container');
+    
+    terminalArea.classList.toggle('collapsed');
+    mainContainer.classList.toggle('terminal-collapsed');
+}
