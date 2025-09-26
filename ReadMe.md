@@ -202,3 +202,141 @@ ii. Take off when armed by pilot
 --> control with pos/vel/acc for smoothness
 
 --> Lire doc caméra pour inté
+
+# Utilisation de manual web control interface
+
+Lors du colcon build, le node et l'interface sont construit à l'aide des templates.j2 et config.json dans mission/control_interfaces et de setup.py.
+
+***IL EST DONC INUTILE DE MODIFIER DIRECTEMENT LE NODE web_manual_control_node.py***
+
+Le fichier à modifier est donc config.json dans control_interfaces pour des modifications d'interfaces. Les subscribers n'ont pas été tester à l'instant mais devraient fonctionner.
+
+## Customizing de l'interface avec le config.json
+
+Il y a deux catégories primaires : sidebar et control_sections.
+
+### sidebar
+La sidebar va contenir title et un array buttons qui va contenir tous les boutons de celle-ci.
+
+    "sidebar": {
+        "title": "System Control",
+        "buttons": [
+        {
+            "text": "Battery Changed",
+            "class": "battery-btn",
+            "command": "/battery_changed",
+            "topicType": "String",
+            "qosProfile": false,
+            "data": "CHANGED"
+        },
+        {
+            "text": "EMERGENCY ABORT",
+            "class": "abort-btn",
+            "command": "/abort_brake",
+            "topicType": "String",
+            "qosProfile": true,
+            "data": "a.b."
+        },
+        {
+            "text": "ARM & AUTHORIZE TAKEOFF",
+            "class": "arm-btn",
+            "topicType": "String",
+            "qosProfile": false,
+            "command": "/confirm_arming",
+            "data": "ARM"
+        }
+        ]
+    },
+
+### control_sections
+control_sections représente un array de sections, soit les carré visibles dans l'interface. Chaque objet de control_sections va avoir les attributs suivant title et un choix simple ou multiple de buttons, inputs, radio et sensors. Ces derniers sont des array avec des boutons, inputs, sensors et boutons radio (sélectionner un de ces boutons déselectionne l'autre).
+
+    "control_sections": [
+        {
+        "title": "Vision Control",
+        "buttons": [
+                {
+                "text": "Source Search",
+                "topicType": "String",
+                "qosProfile": false,
+                "command": "/go_vision",
+                "data": "SOURCE"
+                },
+                {
+                "text": "Bucket Search",
+                "topicType": "String",
+                "qosProfile": false,
+                "command": "/go_vision",
+                "data": "BUCKET"
+                }
+            ]
+        },
+    ],
+        
+title est le titre de la section de l'interface
+
+## Pour ce qui des boutons, inputs, radio et sensors:
+
+### Boutons: 
+Ce sont des boutons normaux qui send un message au topic. Ici,
+
+text représente le texte écris sur le bouton, 
+topicType représente le type de message (String, Int32, etc.), 
+qosProfile ajoute l'option d'utiliser qos ou non avec un boolean,
+command représente le topic et
+data représente le message à envoyer 
+
+    {
+        "text": "Source Search",
+        "topicType": "String",
+        "qosProfile": false,
+        "command": "/go_vision",
+        "data": "SOURCE"
+    },
+
+### Radio
+Ils sont pareil que les boutons mais si on est actif, les autres sont inactifs. Il s'agit plus d'une modification visuel que technique.
+
+### Inputs
+C'est un selecteur de valeur de type integer uniquement.
+type sert de dire qu'il s'agit de nombres (va possiblement rajouter d'autre types plus tard)
+
+id est utilisé pour l'interface pour avoir accès à la valeur DOIT ÊTRE UNIQUE
+topicType représente le type de message (String, Int32, etc.), 
+qosProfile ajoute l'option d'utiliser qos ou non avec un boolean,
+command représente le topic et
+data représente le message à envoyer
+min est la valeur minimale permissible
+value est la valeur par défaut
+label est le texte sur l'interface qui identifie la section
+
+    {
+        "type": "number",
+        "id": "bucketNumber",
+        "command": "/bucket_number",
+        "topicType": "Int32",
+        "qosProfile": false,
+        "min": "1",
+        "value": "1",
+        "label": "Buckets:"
+    }
+### Sensors (subscribers)
+***UNTESTED AT THE MOMENT***
+
+Les objets sensors fonctionne similairement à ceux de inputs :
+
+id est utilisé pour l'interface pour avoir accès à la valeur DOIT ÊTRE UNIQUE
+topicType représente le type de message (String, Int32, etc.), 
+qosProfile ajoute l'option d'utiliser qos ou non avec un boolean,
+command représente le topic et
+value est la valeur par défaut
+label est le texte sur l'interface qui identifie la section
+
+    {
+        "id": "torque",
+        "label": "Motor Torque",
+        "command": "/torque",
+        "topicType": "Float32",
+        "qosProfile": false,
+        "value": "0.00 Nm"
+    }
