@@ -73,7 +73,7 @@ ros2 topic pub --once /estimated_target_location geometry_msgs/msg/PoseStamped '
  """
 """
 ros2 topic pub --once /goal_pose_polar custom_interfaces/msg/TargetPosePolar \
-"{r: 4.0, z: 5.0, theta: -1.2, relative: true, v_theta: 0.5, v_r: 1.0}"
+"{r: 4.0, z: 5.0, theta: -1.2, relative: false, v_theta: 0.5, v_r: 1.0}"
 """
 
 

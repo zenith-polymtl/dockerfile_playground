@@ -78,8 +78,8 @@ class ApproachNode(Node):
         # PD Controllers for XYZ pos control by try and retry sim analysis
         self.pid_r = PIDController(kp=1.5, ki=0.2, kd=1.5, max_i=1.0)
         self.pid_theta = PIDController(kp=0.6, ki=0, kd=0.24)
-        self.pid_z = PIDController(kp=0.6, ki=0, kd=0.3)
-        self.pid_r_dot = PIDController(kp=3, ki=4, kd=1.0, max_i = 0.5)
+        self.pid_z = PIDController(kp=0.6, ki=0.0, kd=0.3)
+        self.pid_r_dot = PIDController(kp=2.0, ki=4, kd=1.0, max_i = 0.5)
 
         self.estimated_target_pose = None
         self.drone_pose = None
@@ -92,6 +92,7 @@ class ApproachNode(Node):
         self.last_time = None
         self.first = True
         self.r_ref = None
+        self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
 
         self.control_hz = 20
@@ -247,7 +248,7 @@ class ApproachNode(Node):
                 r_dot_error =  r_dot - self.target_pose.v_r
                 self.get_logger().info(f'R : {self.distance_from_target}, r_dot : {r_dot}')
                 self.vel_r = self.pid_r_dot.compute(r_dot_error, self.dt)
-                k = 1
+                k = 0
                 self.vel_r += k*self.tangential_speed_measured**2/self.distance_from_target
                 
 
