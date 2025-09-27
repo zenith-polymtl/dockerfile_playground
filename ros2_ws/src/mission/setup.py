@@ -24,7 +24,7 @@ def generate_files():
         control_interface_dir = os.path.join(package_dir, 'mission', 'control_interface')
         
         # Path configuration
-        config_path = os.path.join(control_interface_dir, 'control_config.json')
+        config_path = os.path.join(control_interface_dir, 'polar.json')
         template_dir = os.path.join(control_interface_dir, 'templates')
         
         # Output paths

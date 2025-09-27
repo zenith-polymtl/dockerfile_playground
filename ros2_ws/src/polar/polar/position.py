@@ -562,7 +562,6 @@ class ApproachNode(Node):
         self.target_pose = msg
         self.target_pose.theta = (-msg.theta+90)/180*np.pi
         #self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.filtered_v_r}, relative={self.target_pose.relative}")
-        self.approach_active = True
 
     def estimation_callback(self, msg):
         self.estimated_target_pose = msg.pose.position

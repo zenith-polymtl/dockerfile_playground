@@ -1,0 +1,52 @@
+{
+  "sidebar": {
+    "title": "System Control",
+    "buttons": [
+      {
+        "text": "Battery Changed",
+        "class": "battery-btn",
+        "command": "/battery_changed",
+        "topicType": "String",
+        "qosProfile": false,
+        "data": "CHANGED"
+      },
+      {
+        "text": "EMERGENCY ABORT",
+        "class": "abort-btn",
+        "command": "/abort_brake",
+        "topicType": "String",
+        "qosProfile": true,
+        "data": "a.b."
+      },
+      {
+        "text": "ARM & AUTHORIZE TAKEOFF",
+        "class": "arm-btn",
+        "topicType": "String",
+        "qosProfile": false,
+        "command": "/confirm_arming",
+        "data": "ARM"
+      }
+    ]
+  },
+  "control_sections": [
+    {
+      "title": "Polar",
+      "buttons": [
+        {
+          "text": "Activate Polar",
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/approach_activation",
+          "data": "start"
+        },
+        {
+          "text": "Deactivate Polar",
+          "topicType": "String",
+          "qosProfile": false,
+          "command": "/approach_activation",
+          "data": "stop"
+        }
+      ]
+    }
+  ]
+}
