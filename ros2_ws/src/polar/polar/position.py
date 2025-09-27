@@ -149,6 +149,7 @@ class ApproachNode(Node):
         self.yaw = None
         self.r_hold = None
         self.filtered_v_r = None
+        self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
 
         # --- Backends / Logging (from params) ---
@@ -408,6 +409,7 @@ class ApproachNode(Node):
           
         self.angle_towards_target_rad = np.arctan2(delta_y, delta_x)  
 
+        
         self.error_yaw = wrap_pi(self.angle_towards_target_rad - self.yaw_enu)
         
         self.compute_commands()
@@ -454,8 +456,10 @@ class ApproachNode(Node):
         self.vel_x = self.vel_rx + self.adjusted_vel_theta_x
         self.vel_y = self.vel_ry + self.adjusted_vel_theta_y
 
+        #Pilot controls yaw rate, which modifies the goal orientation setpoint
+        self.yaw_offset += self.target_pose.yaw_rate*self.dt
         #Angle PID to close in on target angle
-        self.yaw_rate = self.pid_yaw.compute(self.error_yaw, self.dt)
+        self.yaw_rate = self.pid_yaw.compute(self.error_yaw + self.yaw_offset, self.dt)
 
 
         #Feed forward a rate to keep same pose relative to trajectory
