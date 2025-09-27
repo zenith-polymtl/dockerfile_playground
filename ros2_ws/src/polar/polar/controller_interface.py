@@ -5,8 +5,7 @@ from rclpy.node import Node
 from mavros_msgs.msg import RCIn  
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy  
 from std_msgs.msg import String
-from custom_interfaces.msg import TargetPosePolar
-from mavros.base import CliClient  
+from custom_interfaces.msg import TargetPosePolar  
 from mavros_msgs.srv import MessageInterval 
 
 class RCChannelReader(Node):  
@@ -20,19 +19,28 @@ class RCChannelReader(Node):
             depth=10  
         )  
 
+        qos_profile_RE = QoSProfile(  
+            reliability=QoSReliabilityPolicy.RELIABLE,  
+            history=QoSHistoryPolicy.KEEP_LAST,  
+            depth=10  
+        )  
+
         # Using MAVROS Python client  
-        client = CliClient()  
-        req = MessageInterval.Request(message_id=65, message_rate=25.0)  # 25 Hz for RC channels  
-        client.system.cli_set_message_interval.call(req)
+        self.msg_interval_client = self.create_client(MessageInterval, '/mavros/set_message_interval')  
+          
+        # Set up message intervals after a short delay  
+        self.setup_timer = self.create_timer(1.0, self.setup_message_intervals)  
 
         self.declare_parameter('v_r_max', 1.0) 
         self.declare_parameter('v_theta_max', 2.0) 
         self.declare_parameter('v_z_max', 0.5)       # float
+        self.declare_parameter('talk', True)   
 
         # --- Read parameter values ---
         self.v_r_max = self.get_parameter('v_r_max').get_parameter_value().double_value
         self.v_theta_max = self.get_parameter('v_theta_max').get_parameter_value().double_value
         self.v_z_max = self.get_parameter('v_z_max').get_parameter_value().double_value
+        self.talk = self.get_parameter('talk').get_parameter_value().bool_value
           
         # Subscribe to RC input channels  
         self.rc_sub = self.create_subscription(  
@@ -47,26 +55,58 @@ class RCChannelReader(Node):
             '/controller_activation',  
             self.start_callback,  
             qos_profile  
-        )    
+        )
+        
 
-        self.target_pub = self.create_subscription(  
+        self.target_pub = self.create_publisher(  
             TargetPosePolar,  
             '/goal_pose_polar',  
-            qos_profile  
+            qos_profile_RE  
         )    
           
         self.get_logger().info("RC Channel Reader started")  
         self.active = False
         hz = 20
         self.pub_timer = self.create_timer(1/hz, self.publish_target)
+        self.active = True 
+        self.pitch, self.roll, self.yaw, self.throttle = None, None, None, None
+
+    def setup_message_intervals(self):
+        if True:
+            """Set up message intervals after node initialization"""  
+            if not self.msg_interval_client.wait_for_service(timeout_sec=5.0):  
+                self.get_logger().warn('Message interval service not available, aborting request...')  
+                self.destroy_timer(self.setup_timer) 
+                return  
+            
+            request = MessageInterval.Request()  
+            request.message_id = 65  
+            request.message_rate = 25.0  
+            
+            future = self.msg_interval_client.call_async(request)  
+            future.add_done_callback(self.message_interval_callback)  
+            
+        # Destroy the timer since we only need to run this once  
+        self.destroy_timer(self.setup_timer) 
+
+    def message_interval_callback(self, future):  
+        try:  
+            response = future.result()  
+            if response.success:  
+                self.get_logger().info("Message interval set successfully")  
+            else:  
+                self.get_logger().error("Failed to set message interval")  
+        except Exception as e:  
+            self.get_logger().error(f"Service call failed: {e}") 
 
     def publish_target(self):
-        if not self.active:
+        if not self.active or self.roll is None:
+            self.get_logger().info("Not active")
             return
         msg = TargetPosePolar()
         msg.v_r = self.v_r_max * self.pitch
         msg.v_theta = self.v_theta_max * self.roll
-        msg.v_theta = self.v_z_max * self.roll
+        msg.v_z = self.v_z_max * self.throttle
         msg.relative = True
         self.target_pub.publish(msg)
 
@@ -93,15 +133,16 @@ class RCChannelReader(Node):
             throttle_raw = msg.channels[2]  # Channel 3  
             yaw_raw = msg.channels[3]       # Channel 4  
               
-            # Convert PWM values (typically 1000-2000) to normalized values (-1 to 1 for roll/pitch, 0 to 1 for throttle)  
+            # Convert PWM values (typically 1000-2000) to normalized values (-1 to 1 for roll/pitch/throttle)  
             self.roll = self.pwm_to_normalized(roll_raw)  
             self.pitch = self.pwm_to_normalized(pitch_raw)  
             self.throttle = self.pwm_to_normalized(throttle_raw)  
-              
-            self.get_logger().info(  
-                f"Roll: {self.roll:.3f}, Pitch: {self.pitch:.3f}, Throttle: {self.throttle:.3f} "  
-                f"(Raw: {roll_raw}, {pitch_raw}, {throttle_raw})"  
-            )  
+
+            if self.talk:  
+                self.get_logger().info(  
+                    f"Roll: {self.roll:.3f}, Pitch: {self.pitch:.3f}, Throttle: {self.throttle:.3f} "  
+                    f"(Raw: {roll_raw}, {pitch_raw}, {throttle_raw})"  
+                )  
         else:  
             self.get_logger().warn(f"Insufficient RC channels: {len(msg.channels)}")  
       

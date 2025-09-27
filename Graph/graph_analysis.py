@@ -1,0 +1,134 @@
+# plot_cmd_resp_fixed_paths.py
+# Edit these two lines ↓↓↓
+CSV_PATH = "approach_log_polar.csv"       # path to your logged CSV
+SAVE_PATH = "cmd_vs_resp.png"       # set to None to show instead of save
+SMOOTH_WINDOW = 1                   # >1 applies rolling mean smoothing
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import sys, os
+
+def rmse(a, b):
+    m = np.isfinite(a) & np.isfinite(b)
+    if not np.any(m):
+        return np.nan
+    return np.sqrt(np.mean((a[m] - b[m])**2))
+
+def main():
+    if not os.path.isfile(CSV_PATH):
+        print(f"CSV not found: {CSV_PATH}")
+        sys.exit(1)
+
+    df = pd.read_csv(CSV_PATH)
+    if "t" not in df.columns:
+        print("CSV must contain a 't' column.")
+        sys.exit(1)
+
+    df = df.dropna(subset=["t"]).sort_values("t").reset_index(drop=True)
+
+    def col(name):
+        return df[name].to_numpy() if name in df.columns else None
+
+    t = col("t")
+    r = col("r")
+    r_hold = col("r_hold")
+    vel_r_cmd = col("v_r")  
+    vel_r_measured = col("vel_r_measured")           # commanded radial speed (m/s)
+    v_theta_cmd = col("v_theta")         # commanded angular rate (rad/s)
+    vel_theta_meas = col("vel_theta")    # measured tangential speed (m/s)
+    v_z_cmd = col("v_z")                 # commanded vertical (m/s)
+    vel_z_meas = col("vel_z")            # measured vertical (m/s)
+    yaw = col("yaw")   
+    yaw_target = col("yaw_target")   
+
+    # Derived responses
+    v_r_resp = None
+    if r is not None and len(r) > 1:
+        dr_dt = np.gradient(r, t)
+        v_r_resp = -dr_dt  # positive when moving inward
+
+    omega_resp = None
+    if vel_theta_meas is not None and r is not None:
+        r_safe = np.where(r == 0, np.nan, r)
+        omega_resp = vel_theta_meas / r_safe  # rad/s
+
+    # Optional smoothing
+    if SMOOTH_WINDOW and SMOOTH_WINDOW > 1:
+        def smooth(x):
+            if x is None: return None
+            return pd.Series(x).rolling(SMOOTH_WINDOW, center=True, min_periods=1).mean().to_numpy()
+        r = smooth(r)
+        r_hold = smooth(r_hold)
+        vel_r_cmd = smooth(vel_r_cmd)
+        v_theta_cmd = smooth(v_theta_cmd)
+        vel_theta_meas = smooth(vel_theta_meas)
+        v_z_cmd = smooth(v_z_cmd)
+        vel_z_meas = smooth(vel_z_meas)
+        v_r_resp = smooth(v_r_resp)
+        omega_resp = smooth(omega_resp)
+
+    # Build plots
+    fig, axs = plt.subplots(5, 1, figsize=(10, 12), sharex=True)
+    ax_idx = 0
+
+    # Radial
+    if vel_r_cmd is not None and v_r_resp is not None:
+        axs[ax_idx].plot(t, vel_r_cmd, label="radial cmd (vel_r) [m/s]")
+        axs[ax_idx].plot(t, -vel_r_measured, label="radial resp (-dr/dt) [m/s]")
+        axs[ax_idx].set_ylabel("v_r [m/s]")
+        axs[ax_idx].grid(True)
+        axs[ax_idx].legend()
+        ax_idx += 1
+
+    # Tangential (angular)
+    if yaw_target is not None and yaw is not None:
+        axs[ax_idx].plot(t, yaw_target, label="Yaw target[m/s]")
+        axs[ax_idx].plot(t, yaw, label="Measured yaw [m/s]")
+        axs[ax_idx].set_ylabel("yaw [rad]")
+        axs[ax_idx].grid(True)
+        axs[ax_idx].legend()
+        ax_idx += 1
+
+    if v_theta_cmd is not None and omega_resp is not None:
+        axs[ax_idx].plot(t, v_theta_cmd, label="Tangential command (v_theta) [m/s]")
+        axs[ax_idx].plot(t, vel_theta_meas, label="Measured tangential speed [m/s]")
+        axs[ax_idx].set_ylabel("v_thetha [m/s]")
+        axs[ax_idx].grid(True)
+        axs[ax_idx].legend()
+        ax_idx += 1
+
+    # Vertical
+    if v_z_cmd is not None and vel_z_meas is not None:
+        axs[ax_idx].plot(t, v_z_cmd, label="vertical cmd (v_z) [m/s]")
+        axs[ax_idx].plot(t, vel_z_meas, label="vertical resp (vel_z) [m/s]")
+        axs[ax_idx].set_ylabel("v_z [m/s]")
+        axs[ax_idx].grid(True)
+        axs[ax_idx].legend()
+        axs[ax_idx].set_title(f"Vertical: RMSE={rmse(v_z_cmd, vel_z_meas):.3f} m/s")
+        ax_idx += 1
+
+    # Range tracking
+    if r is not None and r_hold is not None:
+        axs[ax_idx].plot(t, r, label="r (distance) [m]")
+        axs[ax_idx].plot(t, r_hold, label="r_hold [m]")
+        axs[ax_idx].set_ylabel("r [m]")
+        axs[ax_idx].grid(True)
+        axs[ax_idx].legend()
+        axs[ax_idx].set_title("Range tracking")
+        ax_idx += 1
+
+    for k in range(ax_idx, 5):
+        axs[k].set_visible(False)
+
+    axs[max(ax_idx-1, 0)].set_xlabel("time [s]")
+    fig.tight_layout()
+
+    if SAVE_PATH:
+        fig.savefig(SAVE_PATH, dpi=150, bbox_inches="tight")
+        print(f"Saved figure -> {SAVE_PATH}")
+    else:
+        plt.show()
+
+if __name__ == "__main__":
+    main()
