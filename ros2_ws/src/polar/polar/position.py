@@ -113,6 +113,7 @@ class ApproachNode(Node):
 
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
+
         # --- Controllers (gains/limits from params) ---
         self.pid_r = PIDController(
             kp=self.pid_r_kp, ki=self.pid_r_ki, kd=self.pid_r_kd,
@@ -135,6 +136,7 @@ class ApproachNode(Node):
             max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
         )
 
+
         # --- State ---
         self.estimated_target_pose = None
         self.drone_pose = None
@@ -149,6 +151,7 @@ class ApproachNode(Node):
         self.yaw = None
         self.r_hold = None
         self.filtered_v_r = None
+
         self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
 
@@ -427,6 +430,7 @@ class ApproachNode(Node):
         if self.target_pose.relative:
             #Stabilisation PID and v_r feedforward
             self.vel_r = self.pid_r.compute(self.r_error, self.dt) - self.filtered_v_r
+
 
             #Direct vertical speed control
             self.vel_z = self.target_pose.v_z
