@@ -1,7 +1,0 @@
-/home/colin/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:289: UserWarning: Unknown distribution option: 'tests_require'
-  warnings.warn(msg)
-  File "/home/colin/dockerfile_playground/install/polar/lib/python3.10/site-packages/polar/look_target.py", line 3
-    from mavros_msgs.msg import AttitudeTarget  à
-                                                ^^
-SyntaxError: invalid syntax
-

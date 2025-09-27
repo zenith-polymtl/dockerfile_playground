@@ -1,4 +1,0 @@
-Invoking command in '/home/colin/dockerfile_playground/build/start_mission': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/colin/dockerfile_playground/build/start_mission -- -j12 -l12
-Invoked command in '/home/colin/dockerfile_playground/build/start_mission' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/colin/dockerfile_playground/build/start_mission -- -j12 -l12
-Invoking command in '/home/colin/dockerfile_playground/build/start_mission': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/colin/dockerfile_playground/build/start_mission
-Invoked command in '/home/colin/dockerfile_playground/build/start_mission' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/colin/dockerfile_playground/build/start_mission

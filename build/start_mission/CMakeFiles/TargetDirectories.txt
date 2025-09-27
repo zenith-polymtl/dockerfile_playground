@@ -1,9 +1,0 @@
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/uninstall.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/start_mission_uninstall.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/test.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/edit_cache.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/rebuild_cache.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/list_install_components.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/install.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/install/local.dir
-/home/colin/dockerfile_playground/build/start_mission/CMakeFiles/install/strip.dir
