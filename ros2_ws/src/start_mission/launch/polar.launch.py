@@ -15,7 +15,7 @@ def generate_launch_description():
                 'centripetal_limit': 5.0,
                 'zenmav_endpoint': 'tcp:127.0.0.1:5762',
                 'msg_interval_rate': 25.0,
-                'talk' : False,
+                'talk' : True,
                 'pid_r_kd' : 1.2,
             }]
         )

@@ -356,6 +356,9 @@ class ApproachNode(Node):
             self.current_time = None
             self.last_time = None
             self.drone_speed = None
+            self.filtered_v_r = None
+            self.yaw_offset = 0.0
+            
 
 
     def compute_estimated_state(self):
