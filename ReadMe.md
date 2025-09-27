@@ -212,6 +212,7 @@ Lors du colcon build, le node et l'interface sont construit à l'aide des templa
 Le fichier à modifier est donc config.json dans control_interfaces pour des modifications d'interfaces. Les subscribers n'ont pas été tester à l'instant mais devraient fonctionner.
 
 ## Customizing de l'interface avec le config.json
+Pour avoir un titre simplement mettre "title": "mon titre" au début de l'objet.
 
 Il y a deux catégories primaires : sidebar et control_sections.
 

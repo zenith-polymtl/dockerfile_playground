@@ -101,6 +101,7 @@ def generate_files():
         html_template = env.get_template('template.html.j2')
         with open(html_output_path, 'w') as f:
             f.write(html_template.render(
+                config=config,
                 sidebar=config['sidebar'],
                 control_sections=config['control_sections']
             ))

@@ -1,6 +1,7 @@
 {
+  "title": "Polar Interface",
   "sidebar": {
-    "title": "System Control",
+    "title": "Polar Control",
     "buttons": [
       {
         "text": "Battery Changed",
