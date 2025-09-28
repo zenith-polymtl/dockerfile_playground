@@ -5,7 +5,6 @@ from launch.actions import TimerAction, ExecuteProcess
 def generate_launch_description():
     ld = LaunchDescription()
 
-    
     position_node = Node(
             package="polar",
             executable="position",
@@ -47,9 +46,9 @@ def generate_launch_description():
     
     ld.add_action(position_node)
     ld.add_action(one_shot_fake)
-    ld.add_action(control)
+    #ld.add_action(control)
 
-    launch_rc = False
+    launch_rc = True
     if launch_rc:
         ld.add_action(rc)
     
