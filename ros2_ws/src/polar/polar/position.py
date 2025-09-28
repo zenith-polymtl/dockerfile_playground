@@ -12,6 +12,16 @@ from mavros_msgs.srv import MessageInterval
 import math
 from zenmav.core import Zenmav
 import csv
+# top of your script
+import cProfile, pstats, atexit, io
+_prof = cProfile.Profile(); _prof.enable()
+def _dump_prof():
+    s = io.StringIO()
+    pstats.Stats(_prof, stream=s).strip_dirs().sort_stats("tottime").print_stats(60)
+    open("/tmp/approach_cprofile.txt","w").write(s.getvalue())
+atexit.register(_dump_prof)
+
+
 class SimpleCSV:
     """Ultra-light CSV logger.
        - fields: list of column names (t is auto-added as time since init)
@@ -151,6 +161,7 @@ class ApproachNode(Node):
         self.yaw = None
         self.r_hold = None
         self.filtered_v_r = None
+        self.approach_active = False
 
         self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
@@ -189,6 +200,7 @@ class ApproachNode(Node):
 
         # Limits
         self.declare_parameter("centripetal_limit", 2.0)  # [m/s^2]
+        self.declare_parameter("minimal_margin", 2.0)
 
         # CSV log
         self.declare_parameter("csv_path", "approach_log_polar.csv")
@@ -253,6 +265,7 @@ class ApproachNode(Node):
         # Rates / filters / limits
         self.alpha             = float(gp("alpha").value)
         self.centripetal_limit = float(gp("centripetal_limit").value)
+        self.minimal_margin = float(gp("minimal_margin").value)
 
         # CSV / comms
         self.csv_path         = gp("csv_path").value
@@ -351,7 +364,6 @@ class ApproachNode(Node):
             self.first = True
             self.r_hold = None
 
-            self.estimated_target_pose = None
             self.last_time = None
             self.r_error = None
             self.z_error = None
@@ -379,7 +391,7 @@ class ApproachNode(Node):
         delta_z = self.estimated_target_pose.z - self.drone_pose.z
 
         #Compute distance with target
-        self.distance_from_target = np.sqrt(delta_x**2 + delta_y**2)
+        self.distance_from_target = math.hypot(delta_x,delta_y)
 
         #Initialize r_hold if relative not active
         if self.first: 
@@ -399,11 +411,17 @@ class ApproachNode(Node):
         self.tangential_speed_measured = self.drone_speed.x * tangential_unit_vector[0] + self.drone_speed.y * tangential_unit_vector[1]
 
         if self.target_pose.relative:
-            self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
             self.v_theta = self.target_pose.v_theta #Directly pass v_theta as target
+
+            if abs(self.tangential_speed_measured) < 0.04:
+                self.r_hold = self.distance_from_target
+                self.pid_r.integral = 0
+            self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
+            self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
+
         else:
             self.r_error = self.distance_from_target - self.target_pose.r #r+ is radial in
-            self.theta_error = wrap_pi(np.arctan2(-delta_y, -delta_x) - self.target_pose.theta)
+            self.theta_error = wrap_pi(math.atan2(-delta_y, -delta_x) - self.target_pose.theta)
             self.theta_distance_error = self.theta_error*self.distance_from_target
             self.z_error = delta_z + float(self.target_pose.z)
 
@@ -423,13 +441,18 @@ class ApproachNode(Node):
     def compute_commands(self):
         
         #Compute delta-time since last command
-        current_time = time.time()
-        self.dt = current_time - self.last_time
-        self.last_time = current_time
+
+        # in compute_commands()
+        now = time.monotonic()
+        self.dt = (now - self.last_time) if self.last_time is not None else 0.0
+        self.last_time = now
+        # clamp dt to kill spikes (and forbid negatives)
+        self.dt = max(1e-3, min(self.dt, 0.10))
 
         if self.target_pose.relative:
             #Stabilisation PID and v_r feedforward
             self.vel_r = self.pid_r.compute(self.r_error, self.dt) - self.filtered_v_r
+
 
 
             #Direct vertical speed control
@@ -437,41 +460,58 @@ class ApproachNode(Node):
 
             #Update r_hold if v_r is out of a small dead (prevents small instabilities)
             if abs(self.filtered_v_r) > 0.01:
-                self.r_hold += self.filtered_v_r * self.dt
 
+                self.r_hold += self.filtered_v_r * self.dt
+                
         else:
             # Compute speeds based of absolute error
             self.vel_r = self.pid_r_abs.compute(self.r_error, self.dt)
             self.vel_z = self.pid_z.compute(self.z_error, self.dt)
             self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt)
 
-        if self.talk:
-            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
 
         #Centrepedial acceleration limit
-        if self.v_theta**2/self.distance_from_target > self.centripetal_limit:
-            self.v_theta = np.sign(self.v_theta)*np.sqrt(self.distance_from_target)  #Limit to 1m/s/s
+        r = max(self.distance_from_target, 1e-6)
+        vtheta_max = math.sqrt(self.centripetal_limit * r)
+        self.v_theta = float(np.clip(self.v_theta, -vtheta_max, vtheta_max))
+        #Limit to 1m/s/s
 
         # Decompose velocities into x and y components
         #Radial speed
-        self.vel_rx, self.vel_ry = self.vel_r*self.unit_vector_to_target
-
-        #Bend correct tangential speeds
+        self.yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target
         self.bend_correction()
 
+        if self.talk:
+            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
+
+
+        self.vel_rx, self.vel_ry = self.vel_r*self.unit_vector_to_target
+        self.vel_theta_x, self.vel_theta_y = self.v_theta*np.array([-self.unit_vector_to_target[1], self.unit_vector_to_target[0]])
+        
+
         #Combination
-        self.vel_x = self.vel_rx + self.adjusted_vel_theta_x
-        self.vel_y = self.vel_ry + self.adjusted_vel_theta_y
+        self.vel_x = self.vel_rx + self.vel_theta_x
+        self.vel_y = self.vel_ry + self.vel_theta_y
 
         #Pilot controls yaw rate, which modifies the goal orientation setpoint
         self.yaw_offset += self.target_pose.yaw_rate*self.dt
-        #Angle PID to close in on target angle
-        self.yaw_rate = self.pid_yaw.compute(self.error_yaw + self.yaw_offset, self.dt)
+        if self.yaw_offset > np.pi :
+            self.yaw_offset -= 2*np.pi
+        elif self.yaw_offset < -np.pi:
+            self.yaw_offset += 2*np.pi
 
+
+        total_yaw_err = wrap_pi(self.error_yaw + self.yaw_offset)
+
+        if self.talk:
+            self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {total_yaw_err:.3f}")
+
+
+        self.yaw_rate = self.pid_yaw.compute(total_yaw_err, self.dt)
 
         #Feed forward a rate to keep same pose relative to trajectory
-        yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target
-        self.yaw_rate += - yaw_feed_forward if self.tangential_speed_measured > 0 else yaw_feed_forward
+        
+        self.yaw_rate += - self.yaw_feed_forward if self.tangential_speed_measured > 0 else self.yaw_feed_forward
 
         self.csv.log(
             r=getattr(self, "distance_from_target", float("nan")),
@@ -489,26 +529,19 @@ class ApproachNode(Node):
         self.send_commands()
 
     def bend_correction(self):
-        #Tangential speed -> Ideal trajectory for continuous motion, not for discrete control
-        self.vel_thetax, self.vel_thetay = self.v_theta*np.array([-self.unit_vector_to_target[1], self.unit_vector_to_target[0]])
+        r = self.distance_from_target
 
-        #Bend adjustment for discrete control
-        omega = self.v_theta / self.distance_from_target          # [rad/s]
-        arc_angle = omega * self.dt                          # [rad]
+        arc = self.v_theta*self.dt
+        theta = arc/r
+        x = r*math.sin(theta)
+        y = r*(1-math.cos(theta))
+        phi = math.atan2(y,x)
 
-        #Math, just trigonometry and algeabra
-        half = 0.5 * arc_angle
-        phi = -half #Made to point inwards
-        sin_half = np.sin(half)
-        # Chord speed
-        #More stable formula for small angles than computing from distance
-        v_new = (2.0 * self.distance_from_target * sin_half) / self.dt if self.dt > 0.0 else 0.0
-
-        #Rotate vectors by phi and scale to circle speed (shorter distance in same time)
-        self.adjusted_vel_theta_x, self.adjusted_vel_theta_y = v_new/self.v_theta * np.array([
-            self.vel_thetax*np.cos(phi) - self.vel_thetay*np.sin(phi),
-            self.vel_thetax*np.sin(phi) + self.vel_thetay*np.cos(phi)
-        ]) if self.v_theta != 0 else (0.0, 0.0)
+        D = math.hypot(x,y)
+        v2 = D/self.dt
+        self.get_logger().info(f"arc = {arc:.3f}, phi = {phi*180/np.pi:.2f}, v2 = {v2:.3f}, rff = {v2*math.sin(phi)}")
+        self.v_theta = v2*math.cos(phi)
+        self.vel_r -= v2*math.sin(phi)
 
 
     def send_commands(self):  
@@ -541,7 +574,7 @@ class ApproachNode(Node):
         self.publisher_raw.publish(target)
 
         if self.talk:
-            self.get_logger().info(f"Temps de traitement : {time.time()- self.start_time:.4f}")
+            self.get_logger().info(f"Temps de traitement : {time.monotonic() - self.start_time:.4f}")
     
     def drone_speed_callback(self, msg):
         self.drone_speed = msg.twist.linear
@@ -567,11 +600,11 @@ class ApproachNode(Node):
         self.estimated_target_pose = msg.pose.position
 
     def drone_pose_callback(self, msg):
-        self.start_time = time.time()
+        self.start_time = time.monotonic()
         self.drone_pose = msg.pose.position
         if self.target_pose is not None and self.estimated_target_pose is not None:
             if self.last_time is None:
-                self.last_time = time.time()
+                self.last_time = time.monotonic()
             else:
                 self.compute_estimated_state()
     

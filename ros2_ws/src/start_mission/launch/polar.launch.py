@@ -12,7 +12,7 @@ def generate_launch_description():
             name="position",
             parameters=[{
                 'alpha': 0.04, #High alpha meaning high v_r change rate allowed, value should be 0.01-0.1
-                'centripetal_limit': 5.0,
+                'centripetal_limit': 2.0,
                 'zenmav_endpoint': 'tcp:127.0.0.1:5762',
                 'msg_interval_rate': 25.0,
                 'talk' : True,
@@ -28,7 +28,7 @@ def generate_launch_description():
                 'v_r_max': 1.0,
                 'v_thetha_max': 2.0,
                 'v_z_max': 0.5,
-                'talk' : True,
+                'talk' : False,
             }]
         )
 
@@ -37,10 +37,17 @@ def generate_launch_description():
         executable = 'one_shot_fake_target',
         name = 'one_shot'
     )
+
+    control = Node(
+        package = 'mission',
+        executable = 'control',
+        name = 'control'
+    )
     
     
     ld.add_action(position_node)
     ld.add_action(one_shot_fake)
+    ld.add_action(control)
 
     launch_rc = False
     if launch_rc:

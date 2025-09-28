@@ -76,7 +76,7 @@ class TargetPoseKeyboard(Node):
             self.yaw_rate += self.yaw_step
         # echo compact status on any change
         if k in ('w','s','a','d','x', 'z',' ', 'r', 'f'):
-            print(f"\r r={self.r:.2f}  v_theta={self.v_theta:.2f}, v_z={self.v_z:.2f}, yaw_rate = {self.yaw_rate}", end='', flush=True)
+            print(f"\r r={self.r:.2f}  v_theta={self.v_theta:.2f}, v_z={self.v_z:.2f}, yaw_rate = {self.yaw_rate:.2f}", end='', flush=True)
 
     def tick(self):
         # process any pending keystrokes (allow multiple per cycle)
