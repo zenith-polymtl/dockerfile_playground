@@ -24,6 +24,7 @@ services:
         ros2 launch mavros apm.launch fcu_url:=udp://:14550@ &&
         tail -f /dev/null
       "
+    #ros2 launch mavros apm.launch fcu_url:=tcp://127.0.0.1:5763 &&
     environment:
       - ROS_DOMAIN_ID=1
       - DISPLAY=${DISPLAY}
