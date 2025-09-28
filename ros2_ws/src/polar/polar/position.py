@@ -139,10 +139,10 @@ class ApproachNode(Node):
 
 
         # --- State ---
-        self.estimated_target_pose = None
+        self.estimated_target_pose = None # ananas !!!!
         self.drone_pose = None
         self.drone_speed = None
-        self.target_pose = None
+        self.target_pose = None # ananas !!!!
         self.last_time = None
         self.r_error = None
         self.z_error = None
@@ -182,7 +182,7 @@ class ApproachNode(Node):
         self.declare_parameter("topic_goal_polar", "/goal_pose_polar")
         self.declare_parameter("topic_estimated_target", "/estimated_target_location")
         self.declare_parameter("topic_activation", "/approach_activation")
-        self.declare_parameter("topic_ctrl_activation", "/controller_activation")
+        self.declare_parameter("topic_ctrl_activation", "/controller_activation")  # ananas
         self.declare_parameter("topic_raw_setpoint", "/mavros/setpoint_raw/local")
         self.declare_parameter("frame_id", "map")
 
