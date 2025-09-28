@@ -33,13 +33,15 @@ class RCChannelReader(Node):
 
         self.declare_parameter('v_r_max', 1.0) 
         self.declare_parameter('v_theta_max', 2.0) 
-        self.declare_parameter('v_z_max', 0.5)       # float
+        self.declare_parameter('v_z_max', 0.5)  
+        self.declare_parameter('yaw_max', 3.14159/4)     # float
         self.declare_parameter('talk', True)   
 
         # --- Read parameter values ---
         self.v_r_max = self.get_parameter('v_r_max').get_parameter_value().double_value
         self.v_theta_max = self.get_parameter('v_theta_max').get_parameter_value().double_value
         self.v_z_max = self.get_parameter('v_z_max').get_parameter_value().double_value
+        self.yaw_max = self.get_parameter('yaw_max').get_parameter_value().double_value
         self.talk = self.get_parameter('talk').get_parameter_value().bool_value
           
         # Subscribe to RC input channels  
@@ -64,12 +66,10 @@ class RCChannelReader(Node):
             qos_profile_RE  
         )    
           
-        self.get_logger().info("RC Channel Reader started")  
-        self.active = False
-        hz = 20
-        self.pub_timer = self.create_timer(1/hz, self.publish_target)
+        
         self.active = True 
         self.pitch, self.roll, self.yaw, self.throttle = None, None, None, None
+        self.get_logger().info("RC Channel Reader started")  
 
     def setup_message_intervals(self):
         if True:
@@ -100,13 +100,11 @@ class RCChannelReader(Node):
             self.get_logger().error(f"Service call failed: {e}") 
 
     def publish_target(self):
-        if not self.active or self.roll is None:
-            self.get_logger().info("Not active")
-            return
         msg = TargetPosePolar()
         msg.v_r = self.v_r_max * self.pitch
         msg.v_theta = self.v_theta_max * self.roll
         msg.v_z = self.v_z_max * self.throttle
+        msg.yaw_rate = self.yaw_max*self.yaw
         msg.relative = True
         self.target_pub.publish(msg)
 
@@ -126,7 +124,9 @@ class RCChannelReader(Node):
         - Channel 2: Pitch (elevator)   
         - Channel 3: Throttle  
         - Channel 4: Yaw (rudder)  
-        """  
+        """
+        if not self.active:
+            return  
         if len(msg.channels) >= 4:  
             roll_raw = msg.channels[0]      # Channel 1  
             pitch_raw = msg.channels[1]     # Channel 2    
@@ -137,12 +137,15 @@ class RCChannelReader(Node):
             self.roll = self.pwm_to_normalized(roll_raw)  
             self.pitch = self.pwm_to_normalized(pitch_raw)  
             self.throttle = self.pwm_to_normalized(throttle_raw)  
+            self.yaw = self.pwm_to_normalized(yaw_raw)
 
             if self.talk:  
                 self.get_logger().info(  
                     f"Roll: {self.roll:.3f}, Pitch: {self.pitch:.3f}, Throttle: {self.throttle:.3f} "  
                     f"(Raw: {roll_raw}, {pitch_raw}, {throttle_raw})"  
                 )  
+
+            self.publish_target()
         else:  
             self.get_logger().warn(f"Insufficient RC channels: {len(msg.channels)}")  
       

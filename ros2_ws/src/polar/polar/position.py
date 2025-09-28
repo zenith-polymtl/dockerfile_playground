@@ -12,15 +12,6 @@ from mavros_msgs.srv import MessageInterval
 import math
 from zenmav.core import Zenmav
 import csv
-# top of your script
-import cProfile, pstats, atexit, io
-_prof = cProfile.Profile(); _prof.enable()
-def _dump_prof():
-    s = io.StringIO()
-    pstats.Stats(_prof, stream=s).strip_dirs().sort_stats("tottime").print_stats(60)
-    open("/tmp/approach_cprofile.txt","w").write(s.getvalue())
-atexit.register(_dump_prof)
-
 
 class SimpleCSV:
     """Ultra-light CSV logger.
