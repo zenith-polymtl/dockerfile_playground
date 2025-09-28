@@ -64,10 +64,14 @@ class RCChannelReader(Node):
             TargetPosePolar,  
             '/goal_pose_polar',  
             qos_profile_RE  
-        )    
+        )   
+
+        self.activation_pub = self.create_publisher(
+            String, '/approach_activation', qos_profile_RE
+        ) 
           
-        
-        self.active = True 
+        self.active = False
+        self.last_active = False
         self.pitch, self.roll, self.yaw, self.throttle = None, None, None, None
         self.get_logger().info("RC Channel Reader started")  
 
@@ -125,13 +129,17 @@ class RCChannelReader(Node):
         - Channel 3: Throttle  
         - Channel 4: Yaw (rudder)  
         """
-        if not self.active:
-            return  
+         
         if len(msg.channels) >= 4:  
             roll_raw = msg.channels[0]      # Channel 1  
             pitch_raw = msg.channels[1]     # Channel 2    
             throttle_raw = msg.channels[2]  # Channel 3  
             yaw_raw = msg.channels[3]       # Channel 4  
+            activation = msg.channels[6]
+            if activation > 1700:
+                self.active = True
+            elif activation < 1300:
+                self.active = False
               
             # Convert PWM values (typically 1000-2000) to normalized values (-1 to 1 for roll/pitch/throttle)  
             self.roll = self.pwm_to_normalized(roll_raw)  
@@ -143,11 +151,32 @@ class RCChannelReader(Node):
                 self.get_logger().info(  
                     f"Roll: {self.roll:.3f}, Pitch: {self.pitch:.3f}, Throttle: {self.throttle:.3f} "  
                     f"(Raw: {roll_raw}, {pitch_raw}, {throttle_raw})"  
-                )  
+                    f"(Activation pwm : {activation}"  
+                )
+
+            if self.active and not self.last_active:
+                self.start_position()
+            elif not self.active and self.last_active:
+                self.close_system()
+
+            self.last_active = self.active 
+
+            if not self.active:
+                return
 
             self.publish_target()
         else:  
-            self.get_logger().warn(f"Insufficient RC channels: {len(msg.channels)}")  
+            self.get_logger().warn(f"Insufficient RC channels: {len(msg.channels)}")
+
+    def close_system(self):
+        msg = String()
+        msg.data = 'stop'
+        self.activation_pub.publish(msg)
+
+    def start_position(self):
+        msg = String()
+        msg.data = 'start'
+        self.activation_pub.publish(msg)
       
     def pwm_to_normalized(self, pwm_value, center=1500, deadband=50):  
         """Convert PWM value to normalized range [-1, 1] with center at 1500"""  

@@ -13,7 +13,7 @@ def generate_launch_description():
             parameters=[{
                 'alpha': 0.04, #High alpha meaning high v_r change rate allowed, value should be 0.01-0.1
                 'centripetal_limit': 2.0,
-                'zenmav_endpoint': 'tcp:127.0.0.1:5762',
+                'zenmav_endpoint': 'udp:127.0.0.1:14551',
                 'msg_interval_rate': 25.0,
                 'talk' : True,
                 'pid_r_kd' : 1.2,
