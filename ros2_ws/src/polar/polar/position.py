@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped, PoseStamped
-from std_msgs.msg import String
+from std_msgs.msg import String, Float64
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import numpy as np
 import time
@@ -21,7 +21,7 @@ class SimpleCSV:
     def __init__(self, path: str, fields):
         self.fields = ["t"] + list(fields)
         self._t0 = time.monotonic()
-        self._fh = open(path, "w", newline="")
+        self._fh = open(path, "w", newline="", buffering=1024*64)
         self._w = csv.writer(self._fh)
         self._w.writerow(self.fields)  # header
 
@@ -29,7 +29,6 @@ class SimpleCSV:
         t = vals.get("t", time.monotonic() - self._t0)
         row = [t] + [vals.get(k, "") for k in self.fields[1:]]
         self._w.writerow(row)
-        self._fh.flush()  # simple & safe; remove if you want more speed
 
     def close(self):
         try:
@@ -111,6 +110,9 @@ class ApproachNode(Node):
         self.start_sub = self.create_subscription(
             String, self.topic_ctrl_activation, self.controller_callback, qos_profile
         )
+        self.yaw_sub = self.create_subscription(
+            Float64, '/mavros/global_position/compass_hdg', self.yaw_callback, qos_profile_BE
+        )
 
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
@@ -153,12 +155,15 @@ class ApproachNode(Node):
         self.r_hold = None
         self.filtered_v_r = None
         self.approach_active = False
+        self.last_delta_t = None
+        self.total_yaw_err = None
+        self.delta_t = None
+        self.hdg_deg = None
 
         self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
 
         # --- Backends / Logging (from params) ---
-        self.drone = Zenmav(self.zenmav_endpoint)
 
         self.csv = SimpleCSV(
             path=self.csv_path,
@@ -170,10 +175,12 @@ class ApproachNode(Node):
         self.smooth_timer = self.create_timer(1.0 / hz, self.filter_vr_callback)
         # alpha already set from params in _declare_params() -> self.alpha
 
-        self.get_logger().info("Polar positioning node started")
+        if self.talk:
+            hz = 4
+            self.info_timer = self.create_timer(1/hz, self.info_callback)
+            self.get_logger().info("Polar positioning node started")
 
 
-        self.get_logger().info("Polar positioning node started")
     
     def _declare_params(self):
         # Topics / frame
@@ -308,10 +315,17 @@ class ApproachNode(Node):
             
             request = MessageInterval.Request()  
             request.message_id = 32  
-            request.message_rate = 20.0  
+            request.message_rate = 30.0  
+
+            request2 = MessageInterval.Request()  
+            request2.message_id = 33  
+            request2.message_rate = 30.0  
             
             future = self.msg_interval_client.call_async(request)  
-            future.add_done_callback(self.message_interval_callback)  
+            future.add_done_callback(self.message_interval_callback) 
+
+            future2 = self.msg_interval_client.call_async(request)  
+            future2.add_done_callback(self.message_interval_callback)
             
         # Destroy the timer since we only need to run this once  
         self.destroy_timer(self.setup_timer) 
@@ -365,10 +379,17 @@ class ApproachNode(Node):
             self.filtered_v_r = None
             self.yaw_offset = 0.0
             
+    def info_callback(self):
+        if self.total_yaw_err is not None and self.delta_t is not None:
+            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
+            self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {self.total_yaw_err:.3f}")
+            self.get_logger().info(f"Temps de traitement : {self.delta_t:.5f}")
 
+    def yaw_callback(self, msg):
+        self.hdg_deg = msg.data
 
     def compute_estimated_state(self):
-        if not self.approach_active and self.drone_speed is not None and self.drone_pose is not None:
+        if not self.approach_active or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None:
             return None
         
 
@@ -391,10 +412,10 @@ class ApproachNode(Node):
             self.filter_vr_callback()
 
         # --- Unit vectors in polar frame ---
-        self.unit_vector_to_target = np.array([delta_x, delta_y]) / self.distance_from_target if self.distance_from_target != 0 else np.array([0.0, 0.0])
+        self.unit_vector_to_target = np.array([delta_x, delta_y]) / self.distance_from_target
+        self.unit_vector_to_target = delta_x / self.distance_from_target, delta_y / self.distance_from_target
 
-        tangential_unit_vector = np.array([-self.unit_vector_to_target[1],
-                                            self.unit_vector_to_target[0]])  # CCW tangent
+        tangential_unit_vector = -self.unit_vector_to_target[1], self.unit_vector_to_target[0]  # CCW tangent
 
 
         # --- Decompose velocity into radial/tangential components ---
@@ -404,9 +425,6 @@ class ApproachNode(Node):
         if self.target_pose.relative:
             self.v_theta = self.target_pose.v_theta #Directly pass v_theta as target
 
-            if abs(self.tangential_speed_measured) < 0.04:
-                self.r_hold = self.distance_from_target
-                self.pid_r.integral = 0
             self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
             self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
 
@@ -419,8 +437,7 @@ class ApproachNode(Node):
             self.first = False #Reset the first flag to indicate no relative was going on
 
         # hdg_deg: 0 = North, +CW (aircraft heading)
-        hdg_deg = self.drone.get_global_pos(heading=True).hdg
-        self.yaw_enu = ((math.radians(90.0 - hdg_deg) + math.pi) % (2*math.pi)) - math.pi   # [-pi, pi]
+        self.yaw_enu = ((math.radians(90.0 - self.hdg_deg) + math.pi) % (2*math.pi)) - math.pi   # [-pi, pi]
           
         self.angle_towards_target_rad = np.arctan2(delta_y, delta_x)  
 
@@ -438,11 +455,14 @@ class ApproachNode(Node):
         self.dt = (now - self.last_time) if self.last_time is not None else 0.0
         self.last_time = now
         # clamp dt to kill spikes (and forbid negatives)
-        self.dt = max(1e-3, min(self.dt, 0.10))
+        self.dt = max(1e-5, min(self.dt, 0.10))
 
         if self.target_pose.relative:
             #Stabilisation PID and v_r feedforward
-            self.vel_r = self.pid_r.compute(self.r_error, self.dt) - self.filtered_v_r
+            centrepidal = self.tangential_speed_measured**2/self.distance_from_target
+            drift_compensation = 1.14*centrepidal
+            #self.vel_r = self.pid_r.compute(self.r_error, self.dt)  + drift_compensation - self.filtered_v_r
+            self.vel_r = self.pid_r.compute(self.r_error, self.dt)  + drift_compensation
 
 
 
@@ -472,12 +492,8 @@ class ApproachNode(Node):
         self.yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target
         self.bend_correction()
 
-        if self.talk:
-            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
-
-
-        self.vel_rx, self.vel_ry = self.vel_r*self.unit_vector_to_target
-        self.vel_theta_x, self.vel_theta_y = self.v_theta*np.array([-self.unit_vector_to_target[1], self.unit_vector_to_target[0]])
+        self.vel_rx, self.vel_ry = self.vel_r*self.unit_vector_to_target[0], self.vel_r*self.unit_vector_to_target[1]
+        self.vel_theta_x, self.vel_theta_y = self.v_theta*-self.unit_vector_to_target[1], self.v_theta*self.unit_vector_to_target[0]
         
 
         #Combination
@@ -486,17 +502,15 @@ class ApproachNode(Node):
 
         #Pilot controls yaw rate, which modifies the goal orientation setpoint
         self.yaw_offset += self.target_pose.yaw_rate*self.dt
-        if self.yaw_offset > np.pi :
-            self.yaw_offset -= 2*np.pi
-        elif self.yaw_offset < -np.pi:
-            self.yaw_offset += 2*np.pi
+        if self.yaw_offset > math.pi :
+            self.yaw_offset -= 2*math.pi
+        elif self.yaw_offset < -math.pi:
+            self.yaw_offset += 2*math.pi
 
 
         total_yaw_err = wrap_pi(self.error_yaw + self.yaw_offset)
-
-        if self.talk:
-            self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {total_yaw_err:.3f}")
-
+            
+        self.total_yaw_err = total_yaw_err
 
         self.yaw_rate = self.pid_yaw.compute(total_yaw_err, self.dt)
 
@@ -504,18 +518,19 @@ class ApproachNode(Node):
         
         self.yaw_rate += - self.yaw_feed_forward if self.tangential_speed_measured > 0 else self.yaw_feed_forward
 
-        self.csv.log(
-            r=getattr(self, "distance_from_target", float("nan")),
-            r_hold=(self.r_hold if self.r_hold is not None else float("nan")),
-            vel_r_measured=getattr(self, "radial_speed_measured", float("nan")),
-            v_r=(self.filtered_v_r if (self.target_pose and self.filtered_v_r is not None) else 0.0),
-            v_theta=getattr(self, "v_theta", float("nan")),
-            vel_theta=getattr(self, "tangential_speed_measured", float("nan")),
-            v_z=getattr(self, "vel_z", float("nan")),
-            vel_z=(getattr(self.drone_speed, "z", float("nan")) if hasattr(self, "drone_speed") else float("nan")),
-            yaw = self.yaw_enu,
-            yaw_target = self.angle_towards_target_rad
-        )
+        if True:
+            self.csv.log(
+                r=getattr(self, "distance_from_target", float("nan")),
+                r_hold=(self.r_hold if self.r_hold is not None else float("nan")),
+                vel_r_measured=getattr(self, "radial_speed_measured", float("nan")),
+                v_r=(self.filtered_v_r if (self.target_pose and self.filtered_v_r is not None) else 0.0),
+                v_theta=getattr(self, "v_theta", float("nan")),
+                vel_theta=getattr(self, "tangential_speed_measured", float("nan")),
+                v_z=getattr(self, "vel_z", float("nan")),
+                vel_z=(getattr(self.drone_speed, "z", float("nan")) if hasattr(self, "drone_speed") else float("nan")),
+                yaw = self.yaw_enu,
+                yaw_target = self.angle_towards_target_rad
+            )
         
         self.send_commands()
 
@@ -530,7 +545,6 @@ class ApproachNode(Node):
 
         D = math.hypot(x,y)
         v2 = D/self.dt
-        self.get_logger().info(f"arc = {arc:.3f}, phi = {phi*180/np.pi:.2f}, v2 = {v2:.3f}, rff = {v2*math.sin(phi)}")
         self.v_theta = v2*math.cos(phi)
         self.vel_r -= v2*math.sin(phi)
 
@@ -565,7 +579,16 @@ class ApproachNode(Node):
         self.publisher_raw.publish(target)
 
         if self.talk:
-            self.get_logger().info(f"Temps de traitement : {time.monotonic() - self.start_time:.4f}")
+            dt = time.monotonic() - self.start_time
+            if self.last_delta_t is None :
+                self.last_delta_t = delta_t =  dt
+            else:
+                alpha = 0.005
+                delta_t = (dt)*alpha + self.last_delta_t*(1-alpha)
+
+            self.delta_t = delta_t
+
+            self.last_delta_t = delta_t
     
     def drone_speed_callback(self, msg):
         self.drone_speed = msg.twist.linear
