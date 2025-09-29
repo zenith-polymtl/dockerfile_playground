@@ -76,9 +76,9 @@ def main():
 
     # Radial
     if vel_r_cmd is not None and v_r_resp is not None:
-        axs[ax_idx].plot(t, vel_r_cmd, label="radial cmd (vel_r) [m/s]")
-        axs[ax_idx].plot(t, -vel_r_measured, label="radial resp (-dr/dt) [m/s]")
-        axs[ax_idx].plot(t, -vel_r_transf, label="transformed v_r command [m/s]", linewidth = 0.5, color = 'green')
+        axs[ax_idx].plot(t, vel_r_cmd, label="Pilot cmd [m/s]")
+        axs[ax_idx].plot(t, -vel_r_measured, label="Measured [m/s]")
+        axs[ax_idx].plot(t, -vel_r_transf, label="Processed cmd[m/s]", linewidth = 1, color = 'green')
         axs[ax_idx].set_ylabel("v_r [m/s]")
         axs[ax_idx].grid(True)
         axs[ax_idx].legend()
@@ -86,7 +86,7 @@ def main():
 
     # Tangential (angular)
     if yaw_target is not None and yaw is not None:
-        axs[ax_idx].plot(t, yaw_target, label="Yaw target[m/s]")
+        axs[ax_idx].plot(t, yaw_target, label="Yaw cmd [m/s]")
         axs[ax_idx].plot(t, yaw, label="Measured yaw [m/s]")
         axs[ax_idx].set_ylabel("yaw [rad]")
         axs[ax_idx].grid(True)
@@ -94,9 +94,9 @@ def main():
         ax_idx += 1
 
     if v_theta_cmd is not None and omega_resp is not None:
-        axs[ax_idx].plot(t, v_theta_cmd, label="Transformed command (v_theta) [m/s]")
-        axs[ax_idx].plot(t, vel_theta_meas, label="Measured tangential speed [m/s]")
-        axs[ax_idx].plot(t, v_cmd, label="Command tangential speed [m/s]")
+        axs[ax_idx].plot(t, v_cmd, label="Pilot cmd [m/s]")
+        axs[ax_idx].plot(t, vel_theta_meas, label="Measured [m/s]")
+        axs[ax_idx].plot(t, v_theta_cmd, label="Processed cmd [m/s]", color = 'green')
         axs[ax_idx].set_ylabel("v_thetha [m/s]")
         axs[ax_idx].grid(True)
         axs[ax_idx].legend()

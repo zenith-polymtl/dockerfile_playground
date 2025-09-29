@@ -492,10 +492,10 @@ class ApproachNode(Node):
                 
         else:
             # Compute speeds based of absolute error
-            self.vel_r = self.pid_r_abs.compute(self.r_error, self.dt)
-            self.vel_z = self.pid_z.compute(self.z_error, self.dt)
-            self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt)
-
+            self.vel_r = self.pid_r_abs.compute(self.r_error, self.dt, -self.radial_speed_measured)
+            self.vel_z = self.pid_z.compute(self.z_error, self.dt, self.drone_speed.z)
+            self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt, self.tangential_speed_measured)
+ 
 
         #Centrepedial acceleration limit
         r = max(self.distance_from_target, 1e-6)

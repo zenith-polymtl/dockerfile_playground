@@ -16,7 +16,7 @@ def generate_launch_description():
                 'msg_interval_rate': 25.0,
                 'talk' : True,
                 'pid_r_kd' : 3.5,
-                'pid_r_kp' : 4.0,
+                'pid_r_kp' : 5.0,
             }]
         )
     
