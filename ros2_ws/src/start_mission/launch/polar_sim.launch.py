@@ -15,8 +15,8 @@ def generate_launch_description():
                 'zenmav_endpoint': 'tcp:127.0.0.1:5762',
                 'msg_interval_rate': 25.0,
                 'talk' : True,
-                'pid_r_kd' : 3.0,
-                'pid_r_kp' : 3.2,
+                'pid_r_kd' : 3.5,
+                'pid_r_kp' : 4.0,
             }]
         )
     

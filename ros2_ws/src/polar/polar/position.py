@@ -38,29 +38,36 @@ class SimpleCSV:
 
 
 
+# --- PID with filtered derivative & optional d_meas ---
 class PIDController():
-    def __init__(self, kp, ki, kd, max_output = 3.0, max_i = 1):  # 3.0 m/s norm is max output for vel in xy directions vectorially
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.max_output = max_output
+    def __init__(self, kp, ki, kd, max_output=3.0, max_i=1.0,
+                 deriv_tau=0.0, d_clip=None):
+        self.kp, self.ki, self.kd = kp, ki, kd
+        self.max_output, self.max_i = max_output, max_i
         self.prev_error = 0.0
         self.integral = 0.0
-        self.max_i = max_i
+        self.deriv_tau = deriv_tau  # [s], 0.06–0.12 works well at 30 Hz
+        self._d_state = 0.0
+        self.d_clip = d_clip
 
-    def compute(self, error, dt):
-        if dt <= 0:
-            return 0.0
-        
+    def compute(self, error, dt, d_meas=None):
+        if dt <= 0: return 0.0
+        # I
         self.integral += error * dt
-        # Anti-windup for integral term
-        self.integral = max(min(self.integral, self.max_i), -self.max_i)
-        derivative = (error - self.prev_error) / dt
-        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+        self.integral = max(-self.max_i, min(self.integral, self.max_i))
+        # D (dirty derivative). If d_meas is provided, it's already a rate.
+        raw_d = d_meas if d_meas is not None else (error - self.prev_error)/dt
+        a = self.deriv_tau / (self.deriv_tau + dt)  # 0<a<1
+        self._d_state = a*self._d_state + (1.0 - a)*raw_d
+        dterm = self.kd * self._d_state
+        if self.d_clip is not None:
+            dterm = max(-self.d_clip, min(dterm, self.d_clip))
+        # Sum & clamp
+        u = self.kp*error + self.ki*self.integral + dterm
         self.prev_error = error
+        return max(-self.max_output, min(u, self.max_output))
 
-        # Clamp output to max value
-        return max(min(output, self.max_output), -self.max_output)
+
 
 def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
 
@@ -120,7 +127,7 @@ class ApproachNode(Node):
         # --- Controllers (gains/limits from params) ---
         self.pid_r = PIDController(
             kp=self.pid_r_kp, ki=self.pid_r_ki, kd=self.pid_r_kd,
-            max_i=self.pid_r_max_i, max_output=self.pid_r_max_out
+            max_i=self.pid_r_max_i, deriv_tau=0.075,  max_output=self.pid_r_max_out
         )
         self.pid_r_abs = PIDController(
             kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
@@ -137,6 +144,10 @@ class ApproachNode(Node):
         self.pid_yaw = PIDController(
             kp=self.pid_yaw_kp, ki=self.pid_yaw_ki, kd=self.pid_yaw_kd,
             max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
+        )
+        self.pid_v_theta = PIDController(
+            kp=3.5, ki=1.5, kd=0.0,
+            max_i=0.25, max_output=0.8
         )
 
 
@@ -167,7 +178,7 @@ class ApproachNode(Node):
 
         self.csv = SimpleCSV(
             path=self.csv_path,
-            fields=["r", "r_hold", "vel_r_measured", "v_r", "v_theta", "vel_theta", "v_z", "vel_z", "yaw", "yaw_target"]
+            fields=["r", "r_hold", "vel_r_measured", "v_r", 'v_r_cmd', "v_theta",'cmd_v', "vel_theta", "v_z", "vel_z", "yaw", "yaw_target"]
         )
 
         # --- Periodic jobs ---
@@ -321,7 +332,7 @@ class ApproachNode(Node):
             request2.message_id = 33  
             request2.message_rate = 30.0  
             
-            future = self.msg_interval_client.call_async(request)  
+            future = self.msg_interval_client.call_async(request2)  
             future.add_done_callback(self.message_interval_callback) 
 
             future2 = self.msg_interval_client.call_async(request)  
@@ -456,9 +467,8 @@ class ApproachNode(Node):
         self.dt = (now - self.last_time) if self.last_time is not None else 0.0
         self.last_time = now
         # clamp dt to kill spikes (and forbid negatives)
-        self.dt = max(1e-5, min(self.dt, 0.10))
+        self.dt = max(1e-3, min(self.dt, 0.10))
 
-        #Coriolis correction
 
 
 
@@ -466,11 +476,12 @@ class ApproachNode(Node):
             #Stabilisation PID and v_r feedforward
             centrepidal = self.tangential_speed_measured**2/self.distance_from_target
             drift_compensation = 1.14*centrepidal
-            #self.vel_r = self.pid_r.compute(self.r_error, self.dt)  + drift_compensation - self.filtered_v_r
-            self.vel_r = self.pid_r.compute(self.r_error, self.dt)  + drift_compensation
+            self.vel_r = self.pid_r.compute(self.r_error, self.dt, -self.radial_speed_measured)  + drift_compensation - self.filtered_v_r
+            #self.vel_r = drift_compensation - self.filtered_v_r
+            #self.vel_r = self.pid_r.compute(self.r_error, self.dt, -self.radial_speed_measured)  + drift_compensation
 
-
-
+            self.v_cmd = self.v_theta
+            self.v_theta = self.v_theta + self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt)
             #Direct vertical speed control
             self.vel_z = self.target_pose.v_z
 
@@ -529,7 +540,9 @@ class ApproachNode(Node):
                 r_hold=(self.r_hold if self.r_hold is not None else float("nan")),
                 vel_r_measured=getattr(self, "radial_speed_measured", float("nan")),
                 v_r=(self.filtered_v_r if (self.target_pose and self.filtered_v_r is not None) else 0.0),
+                v_r_cmd = self.vel_r,
                 v_theta=getattr(self, "v_theta", float("nan")),
+                cmd_v = self.v_cmd,
                 vel_theta=getattr(self, "tangential_speed_measured", float("nan")),
                 v_z=getattr(self, "vel_z", float("nan")),
                 vel_z=(getattr(self.drone_speed, "z", float("nan")) if hasattr(self, "drone_speed") else float("nan")),

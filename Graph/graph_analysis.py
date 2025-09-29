@@ -35,7 +35,9 @@ def main():
     r_hold = col("r_hold")
     vel_r_cmd = col("v_r")  
     vel_r_measured = col("vel_r_measured")           # commanded radial speed (m/s)
-    v_theta_cmd = col("v_theta")         # commanded angular rate (rad/s)
+    vel_r_transf = col("v_r_cmd")    
+    v_theta_cmd = col("v_theta")   
+    v_cmd = col('cmd_v')      # commanded angular rate (rad/s)
     vel_theta_meas = col("vel_theta")    # measured tangential speed (m/s)
     v_z_cmd = col("v_z")                 # commanded vertical (m/s)
     vel_z_meas = col("vel_z")            # measured vertical (m/s)
@@ -76,6 +78,7 @@ def main():
     if vel_r_cmd is not None and v_r_resp is not None:
         axs[ax_idx].plot(t, vel_r_cmd, label="radial cmd (vel_r) [m/s]")
         axs[ax_idx].plot(t, -vel_r_measured, label="radial resp (-dr/dt) [m/s]")
+        axs[ax_idx].plot(t, -vel_r_transf, label="transformed v_r command [m/s]", linewidth = 0.5, color = 'green')
         axs[ax_idx].set_ylabel("v_r [m/s]")
         axs[ax_idx].grid(True)
         axs[ax_idx].legend()
@@ -91,8 +94,9 @@ def main():
         ax_idx += 1
 
     if v_theta_cmd is not None and omega_resp is not None:
-        axs[ax_idx].plot(t, v_theta_cmd, label="Tangential command (v_theta) [m/s]")
+        axs[ax_idx].plot(t, v_theta_cmd, label="Transformed command (v_theta) [m/s]")
         axs[ax_idx].plot(t, vel_theta_meas, label="Measured tangential speed [m/s]")
+        axs[ax_idx].plot(t, v_cmd, label="Command tangential speed [m/s]")
         axs[ax_idx].set_ylabel("v_thetha [m/s]")
         axs[ax_idx].grid(True)
         axs[ax_idx].legend()
