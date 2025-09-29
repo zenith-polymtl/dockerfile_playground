@@ -412,7 +412,6 @@ class ApproachNode(Node):
             self.filter_vr_callback()
 
         # --- Unit vectors in polar frame ---
-        self.unit_vector_to_target = np.array([delta_x, delta_y]) / self.distance_from_target
         self.unit_vector_to_target = delta_x / self.distance_from_target, delta_y / self.distance_from_target
 
         tangential_unit_vector = -self.unit_vector_to_target[1], self.unit_vector_to_target[0]  # CCW tangent
@@ -424,9 +423,8 @@ class ApproachNode(Node):
 
         if self.target_pose.relative:
             self.v_theta = self.target_pose.v_theta #Directly pass v_theta as target
-            #Coriolis correction
-            if self.dt is not None:
-                self.v_theta += (self.filtered_v_r * self.v_theta) / self.distance_from_target * self.dt
+
+            
 
             self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
             self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
@@ -459,6 +457,10 @@ class ApproachNode(Node):
         self.last_time = now
         # clamp dt to kill spikes (and forbid negatives)
         self.dt = max(1e-5, min(self.dt, 0.10))
+
+        #Coriolis correction
+
+
 
         if self.target_pose.relative:
             #Stabilisation PID and v_r feedforward
@@ -541,8 +543,6 @@ class ApproachNode(Node):
         r = self.distance_from_target
         arc = self.v_theta * self.dt
         theta = arc / r
-        if abs(theta) < 1e-4:
-            return  # negligible
         x = r*math.sin(theta)
         y = r*(1-math.cos(theta))
         phi = math.atan2(y, x)
