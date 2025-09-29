@@ -424,6 +424,9 @@ class ApproachNode(Node):
 
         if self.target_pose.relative:
             self.v_theta = self.target_pose.v_theta #Directly pass v_theta as target
+            #Coriolis correction
+            if self.dt is not None:
+                self.v_theta += (self.filtered_v_r * self.v_theta) / self.distance_from_target * self.dt
 
             self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
             self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
@@ -536,17 +539,17 @@ class ApproachNode(Node):
 
     def bend_correction(self):
         r = self.distance_from_target
-
-        arc = self.v_theta*self.dt
-        theta = arc/r
+        arc = self.v_theta * self.dt
+        theta = arc / r
+        if abs(theta) < 1e-4:
+            return  # negligible
         x = r*math.sin(theta)
         y = r*(1-math.cos(theta))
-        phi = math.atan2(y,x)
-
-        D = math.hypot(x,y)
-        v2 = D/self.dt
+        phi = math.atan2(y, x)
+        D = math.hypot(x, y)
+        v2 = D / self.dt
         self.v_theta = v2*math.cos(phi)
-        self.vel_r -= v2*math.sin(phi)
+        self.vel_r   -= v2*math.sin(phi)
 
 
     def send_commands(self):  
