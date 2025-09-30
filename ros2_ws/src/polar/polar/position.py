@@ -449,7 +449,6 @@ class ApproachNode(Node):
         self.yaw_enu = ((math.radians(90.0 - self.hdg_deg) + math.pi) % (2*math.pi)) - math.pi   # [-pi, pi]
           
         self.angle_towards_target_rad = np.arctan2(delta_y, delta_x)  
-
         
         self.error_yaw = wrap_pi(self.angle_towards_target_rad - self.yaw_enu)
         
@@ -458,8 +457,6 @@ class ApproachNode(Node):
     def compute_commands(self):
         
         #Compute delta-time since last command
-
-        # in compute_commands()
         now = time.monotonic()
         self.dt = (now - self.last_time) if self.last_time is not None else 0.0
         self.last_time = now
@@ -476,9 +473,8 @@ class ApproachNode(Node):
             #Direct vertical speed control
             self.vel_z = self.target_pose.v_z
 
-            #Update r_hold if v_r is out of a small dead (prevents small instabilities)
+            #Update r_hold if v_r is out of a small deadband (prevents small instabilities)
             if abs(self.filtered_v_r) > 0.04:
-
                 self.r_hold += self.filtered_v_r * self.dt
                 
         else:
