@@ -1,6 +1,6 @@
 # plot_cmd_resp_fixed_paths.py
 # Edit these two lines ↓↓↓
-CSV_PATH = "approach_log_polar.csv"       # path to your logged CSV
+CSV_PATH = "approach_log_polar1.csv"       # path to your logged CSV
 SAVE_PATH = "cmd_vs_resp.png"       # set to None to show instead of save
 SMOOTH_WINDOW = 1                   # >1 applies rolling mean smoothing
 

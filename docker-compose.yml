@@ -21,7 +21,7 @@ services:
         colcon build&&
         ros2 daemon start &&
         source install/setup.bash &&
-        ros2 launch mavros apm.launch fcu_url:=tcp://127.0.0.1:5763 &&
+        ros2 launch mavros apm.launch fcu_url:=udp://:14550@ &&
 
         tail -f /dev/null
       "

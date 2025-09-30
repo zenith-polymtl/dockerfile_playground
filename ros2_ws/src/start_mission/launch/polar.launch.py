@@ -10,12 +10,15 @@ def generate_launch_description():
             executable="position",
             name="position",
             parameters=[{
-                'alpha': 0.08, #High alpha meaning high v_r change rate allowed, value should be 0.01-0.1
+                'alpha': 0.04, #High alpha meaning high v_r change rate allowed, value should be 0.01-0.1
                 'centripetal_limit': 2.0,
                 'msg_interval_rate': 25.0,
                 'talk' : True,
-                'pid_r_kd' : 3.5,
-                'pid_r_kp' : 5.0,
+                'pid_r_kd' : 2.0,
+                'pid_r_kp' : 2.0,
+                'pid_theta_kp': 0.7,
+                'pid_theta_kd' : 0.5,
+                'pid_yaw_kp' : 1.5,
             }]
         )
     
@@ -24,8 +27,8 @@ def generate_launch_description():
             executable="controller_interface",
             name="controller_interface",
             parameters=[{
-                'v_r_max': 1.0,
-                'v_thetha_max': 2.0,
+                'v_r_max': 0.75,
+                'v_thetha_max': 1.5,
                 'v_z_max': 0.5,
                 'talk' : False,
             }]

@@ -145,8 +145,8 @@ class ApproachNode(Node):
             max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
         )
         self.pid_v_theta = PIDController(
-            kp=3.5, ki=1.5, kd=0.0,
-            max_i=0.25, max_output=0.8
+            kp=2.0, ki=1.5, kd=0.0,
+            max_i=0.4, max_output=0.8
         )
 
 
@@ -224,7 +224,7 @@ class ApproachNode(Node):
         self.declare_parameter("pid_r_ki", 1.0)
         self.declare_parameter("pid_r_kd", 3.5)
         self.declare_parameter("pid_r_max_i", 1.0)
-        self.declare_parameter("pid_r_max_out", 3.0)
+        self.declare_parameter("pid_r_max_out", 2.0)
 
         # r_abs (absolute radius controller)
         self.declare_parameter("pid_rabs_kp", 1.5)
@@ -389,7 +389,9 @@ class ApproachNode(Node):
             self.yaw_offset = 0.0
             
     def info_callback(self):
-        if self.total_yaw_err is not None and self.delta_t is not None:
+        if not self.approach_active:
+            return
+        if self.total_yaw_err is not None and self.delta_t is not None and self.r_hold is not None and self.delta_t is not None:
             self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
             self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {self.total_yaw_err:.3f}")
             self.get_logger().info(f"Temps de traitement : {self.delta_t:.5f}")
@@ -488,7 +490,7 @@ class ApproachNode(Node):
         drift_compensation = 1.14*centrepidal
         self.vel_r += drift_compensation
         self.v_cmd = self.v_theta
-        self.v_theta += self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt)
+        self.v_theta += self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt, -self.tangential_speed_measured)
 
         #Centrepedial acceleration limit
         r = max(self.distance_from_target, 1e-6)
@@ -651,6 +653,7 @@ class ApproachNode(Node):
         target.velocity.x = 0.0
         target.velocity.y = 0.0
         target.velocity.z = 0.0
+        target.yaw_rate = 0.0
 
         # Keep yaw stable if we can compute it; otherwise ignore yaw entirely.
         if self.estimated_target_pose is not None and self.drone_pose is not None:
