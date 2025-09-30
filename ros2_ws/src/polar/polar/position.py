@@ -10,7 +10,6 @@ from custom_interfaces.msg import TargetPosePolar
 from mavros_msgs.msg import PositionTarget 
 from mavros_msgs.srv import MessageInterval 
 import math
-from zenmav.core import Zenmav
 import csv
 
 class SimpleCSV:
@@ -214,37 +213,37 @@ class ApproachNode(Node):
         # CSV log
         self.declare_parameter("csv_path", "approach_log_polar.csv")
 
-        # Zenmav / MAVLink config
-        self.declare_parameter("zenmav_endpoint", "tcp:127.0.0.1:5762")
+        #MAVLink config
+
         self.declare_parameter("set_msg_interval", True)
         self.declare_parameter("msg_interval_rate", 20.0)   # Hz
 
         # PID params (flat for simplicity)
         # r (relative mode stabilizer)
-        self.declare_parameter("pid_r_kp", 2.0)
+        self.declare_parameter("pid_r_kp", 5.0)
         self.declare_parameter("pid_r_ki", 1.0)
-        self.declare_parameter("pid_r_kd", 0.5)
+        self.declare_parameter("pid_r_kd", 3.5)
         self.declare_parameter("pid_r_max_i", 1.0)
         self.declare_parameter("pid_r_max_out", 3.0)
 
         # r_abs (absolute radius controller)
-        self.declare_parameter("pid_rabs_kp", 2.0)
-        self.declare_parameter("pid_rabs_ki", 0.6)
-        self.declare_parameter("pid_rabs_kd", 1.2)
+        self.declare_parameter("pid_rabs_kp", 1.5)
+        self.declare_parameter("pid_rabs_ki", 0.0)
+        self.declare_parameter("pid_rabs_kd", 1.5)
         self.declare_parameter("pid_rabs_max_i", 1.2)
-        self.declare_parameter("pid_rabs_max_out", 5.0)
+        self.declare_parameter("pid_rabs_max_out", 2.0)
 
         # theta (angle * radius controller)
-        self.declare_parameter("pid_theta_kp", 0.6)
+        self.declare_parameter("pid_theta_kp", 1.0)
         self.declare_parameter("pid_theta_ki", 0.0)
-        self.declare_parameter("pid_theta_kd", 0.24)
+        self.declare_parameter("pid_theta_kd", 0.6)
         self.declare_parameter("pid_theta_max_i", 1.0)
-        self.declare_parameter("pid_theta_max_out", 3.0)
+        self.declare_parameter("pid_theta_max_out", 2.0)
 
         # z
         self.declare_parameter("pid_z_kp", 0.6)
         self.declare_parameter("pid_z_ki", 0.0)
-        self.declare_parameter("pid_z_kd", 0.35)
+        self.declare_parameter("pid_z_kd", 0.5)
         self.declare_parameter("pid_z_max_i", 1.0)
         self.declare_parameter("pid_z_max_out", 3.0)
 
@@ -278,7 +277,6 @@ class ApproachNode(Node):
 
         # CSV / comms
         self.csv_path         = gp("csv_path").value
-        self.zenmav_endpoint  = gp("zenmav_endpoint").value
         self.set_msg_interval = bool(gp("set_msg_interval").value)
         self.msg_interval_rate= float(gp("msg_interval_rate").value)
 
@@ -434,9 +432,6 @@ class ApproachNode(Node):
 
         if self.target_pose.relative:
             self.v_theta = self.target_pose.v_theta #Directly pass v_theta as target
-
-            
-
             self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
             self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
 
@@ -447,6 +442,8 @@ class ApproachNode(Node):
             self.z_error = delta_z + float(self.target_pose.z)
 
             self.first = False #Reset the first flag to indicate no relative was going on
+            self.r_hold = self.distance_from_target
+
 
         # hdg_deg: 0 = North, +CW (aircraft heading)
         self.yaw_enu = ((math.radians(90.0 - self.hdg_deg) + math.pi) % (2*math.pi)) - math.pi   # [-pi, pi]
@@ -474,19 +471,13 @@ class ApproachNode(Node):
 
         if self.target_pose.relative:
             #Stabilisation PID and v_r feedforward
-            centrepidal = self.tangential_speed_measured**2/self.distance_from_target
-            drift_compensation = 1.14*centrepidal
-            self.vel_r = self.pid_r.compute(self.r_error, self.dt, -self.radial_speed_measured)  + drift_compensation - self.filtered_v_r
-            #self.vel_r = drift_compensation - self.filtered_v_r
-            #self.vel_r = self.pid_r.compute(self.r_error, self.dt, -self.radial_speed_measured)  + drift_compensation
-
-            self.v_cmd = self.v_theta
-            self.v_theta = self.v_theta + self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt)
+            
+            self.vel_r = self.pid_r.compute(self.r_error, self.dt, -self.radial_speed_measured) - self.filtered_v_r
             #Direct vertical speed control
             self.vel_z = self.target_pose.v_z
 
             #Update r_hold if v_r is out of a small dead (prevents small instabilities)
-            if abs(self.filtered_v_r) > 0.01:
+            if abs(self.filtered_v_r) > 0.04:
 
                 self.r_hold += self.filtered_v_r * self.dt
                 
@@ -494,8 +485,14 @@ class ApproachNode(Node):
             # Compute speeds based of absolute error
             self.vel_r = self.pid_r_abs.compute(self.r_error, self.dt, -self.radial_speed_measured)
             self.vel_z = self.pid_z.compute(self.z_error, self.dt, self.drone_speed.z)
-            self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt, self.tangential_speed_measured)
- 
+            self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt, -self.tangential_speed_measured)
+            
+        
+        centrepidal = self.tangential_speed_measured**2/self.distance_from_target
+        drift_compensation = 1.14*centrepidal
+        self.vel_r += drift_compensation
+        self.v_cmd = self.v_theta
+        self.v_theta += self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt)
 
         #Centrepedial acceleration limit
         r = max(self.distance_from_target, 1e-6)
