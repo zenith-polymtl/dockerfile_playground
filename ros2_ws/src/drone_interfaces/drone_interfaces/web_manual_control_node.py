@@ -17,7 +17,7 @@ from datetime import datetime
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
-class DroneWebControl(Node):
+class PolarInterface(Node):
     def __init__(self):
         super().__init__('web_manual_control')  # Changed to super() for proper initialization
         
@@ -37,10 +37,10 @@ class DroneWebControl(Node):
         self.control_subscribers = {}
         self.sensor_data = {}
         
-        self.control_publishers['/confirm_arming'] = self.create_publisher(String, '/confirm_arming', 10)
         self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
-        self.control_publishers['/approach_activation'] = self.create_publisher(String, '/approach_activation', 10)
+        self.control_publishers['/confirm_arming'] = self.create_publisher(String, '/confirm_arming', 10)
         self.control_publishers['/battery_changed'] = self.create_publisher(String, '/battery_changed', 10)
+        self.control_publishers['/approach_activation'] = self.create_publisher(String, '/approach_activation', 10)
         
         
         # Web interface components

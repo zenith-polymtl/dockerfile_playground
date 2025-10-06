@@ -17,7 +17,7 @@ from datetime import datetime
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
-class DroneWebControl(Node):
+class {{ config.title | replace(' ', '') }}(Node):
     def __init__(self):
         super().__init__('web_manual_control')  # Changed to super() for proper initialization
         
