@@ -205,14 +205,16 @@ ii. Take off when armed by pilot
 
 # Utilisation de manual web control interface
 
-Lors du colcon build, le node et l'interface sont construit à l'aide des templates.j2 et config.json dans mission/control_interfaces et de setup.py.
+Lors du colcon build, le node et l'interface sont construit à l'aide des templates.j2 et *.json dans drone_interfaces/control_interfaces et de setup.py.
 
-***IL EST DONC INUTILE DE MODIFIER DIRECTEMENT LE NODE web_manual_control_node.py***
+***IL EST DONC INUTILE DE MODIFIER DIRECTEMENT LES NODE***
 
-Le fichier à modifier est donc config.json dans control_interfaces pour des modifications d'interfaces. Les subscribers n'ont pas été tester à l'instant mais devraient fonctionner.
+Les fichiers à modifier est donc les fichiers *.json comme control_config.json dans control_interfaces pour des modifications et ajouts d'interfaces. Les subscribers n'ont pas été tester à l'instant mais devraient fonctionner.
 
 ## Customizing de l'interface avec le config.json
-Pour avoir un titre simplement mettre "title": "mon titre" au début de l'objet.
+Pour avoir un titre simplement mettre "title": "mon titre" au début de l'objet. Son titre devient aussi son nom executable sans les majuscules.
+
+Important aussi d'assigner un port unique avec "port": "8000"
 
 Il y a deux catégories primaires : sidebar et control_sections.
 

@@ -6,5 +6,7 @@ ros2_ws/data/
 ros2_ws/src/install
 ros2_ws/src/build
 ros2_ws/src/log
-
+ros2_ws/src/drone_interfaces/drone_interfaces/build
+ros2_ws/src/drone_interfaces/drone_interfaces/log
+ros2_ws/src/drone_interfaces/drone_interfaces/install
 *.db3

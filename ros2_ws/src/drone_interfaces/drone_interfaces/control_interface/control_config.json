@@ -1,5 +1,6 @@
 {
   "title": "Drone Control Interface",
+  "port": "8000",
   "sidebar": {
     "title": "System Control",
     "buttons": [

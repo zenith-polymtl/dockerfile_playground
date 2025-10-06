@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title> Polar Interface </title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1> Polar Interface </h1>
+        </div>
+        
+        <div class="sidebar">
+            <h2>Polar Control</h2>
+            <div class="button-group">
+                
+                <button class="battery-btn" onclick="sendCommand('/battery_changed', 'CHANGED', 'String')">Battery Changed</button>
+                
+                <button class="abort-btn" onclick="sendCommand('/abort_brake', 'a.b.', 'String')">EMERGENCY ABORT</button>
+                
+                <button class="arm-btn" onclick="sendCommand('/confirm_arming', 'ARM', 'String')">ARM & AUTHORIZE TAKEOFF</button>
+                
+            </div>
+        </div>
+
+        <div class="content-area">
+            
+            <div class="control-section">
+                <h2>Polar</h2>
+                <div class="button-group">
+                    
+                    <button onclick="sendCommand('/approach_activation', 'start', 'String')">Activate Polar</button>
+                    
+                    <button onclick="sendCommand('/approach_activation', 'stop', 'String')">Deactivate Polar</button>
+                    
+                </div>
+                
+                
+                
+            </div>
+            
+        </div>
+        <div class="terminal-area">
+            <h2 class="terminal-header" onclick="toggleTerminal()">
+                <span>System Terminal</span>
+                <span class="toggle-icon">▼</span>
+            </h2>
+            <div class="terminal-content">
+                <div id="terminal"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/index.js"></script>
+</body>
+</html>

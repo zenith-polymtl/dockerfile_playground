@@ -17,12 +17,19 @@ def generate_launch_description():
     )
     
     # Web manual control node à comment si test de vol réel
-    web_manual_control_node = Node(
-            package="mission",
-            executable="control",
-            name="web_manual_control_node"
+    control1 = Node(
+            package="drone_interfaces",
+            executable="DroneControlInterface",
+            name="control1"
         )
-
+    
+    control2 = Node(
+        package="drone_interfaces",
+        executable="PolarInterface",
+        name="control2"
+    )
+    
+    
     graph_node = Node(
             package="mission",
             executable="graph",
@@ -45,6 +52,11 @@ def generate_launch_description():
     #ld.add_action(approach_node) # Soit lui...
     ld.add_action(approach_node_raw) # ... soit lui!
     ld.add_action(graph_node)
-    ld.add_action(web_manual_control_node) # aussi à commenter si test de vol réel
+
+    #control interfaces
+    ld.add_action(control1) # aussi à commenter si test de vol réel
+    ld.add_action(control2) # aussi à commenter si test de vol réel
+
     ld.add_action(abort_brake_node)
+
     return ld

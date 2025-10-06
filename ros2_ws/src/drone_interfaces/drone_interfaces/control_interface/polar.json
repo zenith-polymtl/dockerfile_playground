@@ -1,5 +1,6 @@
 {
   "title": "Polar Interface",
+  "port": "8001",
   "sidebar": {
     "title": "Polar Control",
     "buttons": [

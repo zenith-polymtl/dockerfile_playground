@@ -23,7 +23,7 @@ class PolarInterface(Node):
         
         # Load configuration
         self.web_dir = os.path.join(get_package_share_directory('drone_interfaces'), 'control_interface')
-        self.html_path = os.path.join(self.web_dir, 'index.html')
+        self.html_path = os.path.join(self.web_dir, 'index_PolarInterface.html')
 
         # QoS configuration
         qos_profile = QoSProfile(
@@ -37,8 +37,8 @@ class PolarInterface(Node):
         self.control_subscribers = {}
         self.sensor_data = {}
         
-        self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
         self.control_publishers['/confirm_arming'] = self.create_publisher(String, '/confirm_arming', 10)
+        self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
         self.control_publishers['/battery_changed'] = self.create_publisher(String, '/battery_changed', 10)
         self.control_publishers['/approach_activation'] = self.create_publisher(String, '/approach_activation', 10)
         
@@ -174,7 +174,7 @@ class PolarInterface(Node):
                     uvicorn.Config(
                         self.app,
                         host="127.0.0.1",
-                        port=8000,
+                        port=8001,
                         log_level="info"
                     )
                 ).serve()
@@ -186,7 +186,7 @@ class PolarInterface(Node):
         try:
             window = webview.create_window(
                 "Drone Control Interface",
-                "http://localhost:8000",
+                "http://localhost:8001",
                 width=1600,
                 height=800,
                 resizable=True,
@@ -210,7 +210,7 @@ class PolarInterface(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DroneWebControl()
+    node = PolarInterface()
     try:
         # Create an executor
         executor = MultiThreadedExecutor()

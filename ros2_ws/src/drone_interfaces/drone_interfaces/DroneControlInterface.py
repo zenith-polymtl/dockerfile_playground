@@ -17,13 +17,13 @@ from datetime import datetime
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
-class {{ config.title | replace(' ', '') }}(Node):
+class DroneControlInterface(Node):
     def __init__(self):
         super().__init__('web_manual_control')  # Changed to super() for proper initialization
         
         # Load configuration
         self.web_dir = os.path.join(get_package_share_directory('drone_interfaces'), 'control_interface')
-        self.html_path = os.path.join(self.web_dir, 'index_{{ config.title | replace(' ', '') }}.html')
+        self.html_path = os.path.join(self.web_dir, 'index_DroneControlInterface.html')
 
         # QoS configuration
         qos_profile = QoSProfile(
@@ -36,11 +36,21 @@ class {{ config.title | replace(' ', '') }}(Node):
         self.control_publishers = {}
         self.control_subscribers = {}
         self.sensor_data = {}
-        {% for pub in publishers %}
-        self.control_publishers['{{ pub[0] }}'] = self.create_publisher({{ pub[1].__name__ }}, '{{ pub[0] }}', {% if pub[2] == True %}qos_profile{% else %}10{% endif %}){% endfor %}
-        {% for sub in subscribers %}
-        self.control_subscribers['{{ sub[0] }}'] = self.create_subscription({{ sub[1].__name__ }}, '{{ sub[0] }}', self.{{ sub[0].split('/')[-1] }}_callback, {% if sub[2] == True %}qos_profile{% else %}10{% endif %})
-        self.sensor_data['{{ sub[0] }}'] = 0{% endfor %}
+        
+        self.control_publishers['/go_winch'] = self.create_publisher(String, '/go_winch', 10)
+        self.control_publishers['/go_vision'] = self.create_publisher(String, '/go_vision', 10)
+        self.control_publishers['/approach_target_graph'] = self.create_publisher(String, '/approach_target_graph', qos_profile)
+        self.control_publishers['/go_bucket_valve'] = self.create_publisher(String, '/go_bucket_valve', 10)
+        self.control_publishers['/bucket_number'] = self.create_publisher(Int32, '/bucket_number', 10)
+        self.control_publishers['/confirm_arming'] = self.create_publisher(String, '/confirm_arming', 10)
+        self.control_publishers['/abort_brake'] = self.create_publisher(String, '/abort_brake', qos_profile)
+        self.control_publishers['/battery_changed'] = self.create_publisher(String, '/battery_changed', 10)
+        self.control_publishers['/valve_state'] = self.create_publisher(String, '/valve_state', 10)
+        
+        self.control_subscribers['/water_qty'] = self.create_subscription(Int32, '/water_qty', self.water_qty_callback, 10)
+        self.sensor_data['/water_qty'] = 0
+        self.control_subscribers['/torque'] = self.create_subscription(Float32, '/torque', self.torque_callback, 10)
+        self.sensor_data['/torque'] = 0
         
         # Web interface components
         self.active_connections: Set[WebSocket] = set()
@@ -69,11 +79,15 @@ class {{ config.title | replace(' ', '') }}(Node):
         
         # Start webview
         self.start_webview()
-{% for sub in subscribers %}
-    def {{ sub[0].split('/')[-1] }}_callback(self, msg):
-        self.sensor_data['{{ sub[0] }}'] = msg.data
+
+    def water_qty_callback(self, msg):
+        self.sensor_data['/water_qty'] = msg.data
         self.schedule_async_task(self.broadcast_sensor_data())
-{% endfor %}
+
+    def torque_callback(self, msg):
+        self.sensor_data['/torque'] = msg.data
+        self.schedule_async_task(self.broadcast_sensor_data())
+
     def schedule_async_task(self, coro):
         asyncio.run_coroutine_threadsafe(coro, self.loop)
 
@@ -177,7 +191,7 @@ class {{ config.title | replace(' ', '') }}(Node):
                     uvicorn.Config(
                         self.app,
                         host="127.0.0.1",
-                        port={{ config.port }},
+                        port=8000,
                         log_level="info"
                     )
                 ).serve()
@@ -189,7 +203,7 @@ class {{ config.title | replace(' ', '') }}(Node):
         try:
             window = webview.create_window(
                 "Drone Control Interface",
-                "http://localhost:{{ config.port }}",
+                "http://localhost:8000",
                 width=1600,
                 height=800,
                 resizable=True,
@@ -213,7 +227,7 @@ class {{ config.title | replace(' ', '') }}(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = {{ config.title | replace(' ', '') }}()
+    node = DroneControlInterface()
     try:
         # Create an executor
         executor = MultiThreadedExecutor()
