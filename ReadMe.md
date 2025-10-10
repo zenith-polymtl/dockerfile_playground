@@ -204,6 +204,7 @@ ii. Take off when armed by pilot
 --> Lire doc caméra pour inté
 
 # Utilisation de manual web control interface
+ROULER ```xhost +local:root``` si sur Linux et pas wsl
 
 Lors du colcon build, le node et l'interface sont construit à l'aide des templates.j2 et *.json dans drone_interfaces/control_interfaces et de setup.py.
 
