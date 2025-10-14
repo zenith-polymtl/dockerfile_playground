@@ -250,7 +250,7 @@ class ApproachNode(Node):
         # yaw
         self.declare_parameter("pid_yaw_kp", 3.0)
         self.declare_parameter("pid_yaw_ki", 1.0)
-        self.declare_parameter("pid_yaw_kd", 0.3)
+        self.declare_parameter("pid_yaw_kd", 0.6)
         self.declare_parameter("pid_yaw_max_i", 0.5)
         self.declare_parameter("pid_yaw_max_out", 6.0)
 

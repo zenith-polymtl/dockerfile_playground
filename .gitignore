@@ -4,6 +4,7 @@ ros2_ws/log/
 ros2_ws/core/
 ros2_ws/data/
 
-Graph/*.csv
-Graph/*.png
 *.db3
+Graph/long_flight.csv
+Graph/polar_d_v_theta.csv
+Graph/crash.csv

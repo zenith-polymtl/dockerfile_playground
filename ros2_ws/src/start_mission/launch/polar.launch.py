@@ -16,8 +16,6 @@ def generate_launch_description():
                 'talk' : True,
                 'pid_r_kd' : 2.0,
                 'pid_r_kp' : 2.0,
-                'pid_theta_kp': 0.7,
-                'pid_theta_kd' : 0.5,
                 'pid_yaw_kp' : 1.5,
             }]
         )

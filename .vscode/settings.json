@@ -1,3 +1,5 @@
 {
-    "cmake.sourceDirectory": "/home/colin/dockerfile_playground/ros2_ws/src/custom_interfaces"
+    "cmake.sourceDirectory": "/home/colin/dockerfile_playground/ros2_ws/src/custom_interfaces",
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": []
 }
