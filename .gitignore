@@ -13,3 +13,4 @@ ros2_ws/src/drone_interfaces/drone_interfaces/install
 build/
 install/
 log/
+ros2_ws/src/drone_interfaces/drone_interfaces/*.py
