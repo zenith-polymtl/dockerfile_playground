@@ -10,3 +10,6 @@ ros2_ws/src/drone_interfaces/drone_interfaces/build
 ros2_ws/src/drone_interfaces/drone_interfaces/log
 ros2_ws/src/drone_interfaces/drone_interfaces/install
 *.db3
+build/
+install/
+log/
