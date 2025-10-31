@@ -49,18 +49,21 @@ class PIDController():
         self.kp, self.ki, self.kd = kp, ki, kd
         self.max_output, self.max_i = max_output, max_i
         self.prev_error = 0.0
+        self.prev_error2 = 0.0
         self.integral = 0.0
         self.deriv_tau = deriv_tau  # [s], 0.06–0.12 works well at 30 Hz
         self._d_state = 0.0
         self.d_clip = d_clip
+
 
     def compute(self, error, dt, d_meas=None):
         if dt <= 0: return 0.0
         # I
         self.integral += error * dt
         self.integral = max(-self.max_i, min(self.integral, self.max_i))
-        # D (dirty derivative). If d_meas is provided, it's already a rate.
-        raw_d = d_meas if d_meas is not None else (error - self.prev_error)/dt
+        ##àSecond order backward derivative. If d_meas is provided, it's already a rate.
+        raw_d = d_meas if d_meas is not None else (3*error - 4*self.prev_error + self.prev_error2)/ (2*dt)
+        #Second order backward derivative
         a = self.deriv_tau / (self.deriv_tau + dt)  # 0<a<1
         self._d_state = a*self._d_state + (1.0 - a)*raw_d
         dterm = self.kd * self._d_state
@@ -68,7 +71,10 @@ class PIDController():
             dterm = max(-self.d_clip, min(dterm, self.d_clip))
         # Sum & clamp
         u = self.kp*error + self.ki*self.integral + dterm
+        self.prev_error2 = self.prev_error
         self.prev_error = error
+        
+        
         return max(-self.max_output, min(u, self.max_output))
 
 
@@ -131,7 +137,7 @@ class ApproachNode(Node):
         # --- Controllers (gains/limits from params) ---
         self.pid_r = PIDController(
             kp=self.pid_r_kp, ki=self.pid_r_ki, kd=self.pid_r_kd,
-            max_i=self.pid_r_max_i, deriv_tau=0.075,  max_output=self.pid_r_max_out
+            max_i=self.pid_r_max_i, deriv_tau=0.0,  max_output=self.pid_r_max_out
         )
         self.pid_r_abs = PIDController(
             kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
@@ -150,9 +156,9 @@ class ApproachNode(Node):
             max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
         )
         self.pid_v_theta = PIDController(
-            kp=4.5, ki=3.5, kd=0.0,
-            max_i=3.0, max_output=5.0,
-            deriv_tau=0.075, d_clip=0.8
+            kp=2.5, ki=1.0, kd=0.5,
+            max_i=0.2, max_output=5.0,
+            deriv_tau=0.1, d_clip=0.3
         )
 
 
@@ -258,7 +264,7 @@ class ApproachNode(Node):
         self.declare_parameter("pid_r_ki", 1.0)
         self.declare_parameter("pid_r_kd", 3.5)
         self.declare_parameter("pid_r_max_i", 1.0)
-        self.declare_parameter("pid_r_max_out", 2.0)
+        self.declare_parameter("pid_r_max_out", 5.0)
 
         # r_abs (absolute radius controller)
         self.declare_parameter("pid_rabs_kp", 1.5)
@@ -277,7 +283,7 @@ class ApproachNode(Node):
         # z
         self.declare_parameter("pid_z_kp", 0.6)
         self.declare_parameter("pid_z_ki", 0.0)
-        self.declare_parameter("pid_z_kd", 0.5)
+        self.declare_parameter("pid_z_kd", 0.3)
         self.declare_parameter("pid_z_max_i", 1.0)
         self.declare_parameter("pid_z_max_out", 3.0)
 
@@ -467,6 +473,9 @@ class ApproachNode(Node):
         self.vertical_speed_measured = self.drone_speed.z
 
         if self.target_pose.relative:
+            if self.target_pose.v_theta**2/max(self.distance_from_target, 1e-6) > self.centripetal_limit:
+                self.target_pose.v_theta = math.copysign(math.sqrt(self.centripetal_limit * max(self.distance_from_target, 1e-6)), self.target_pose.v_theta)
+        
             self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
             self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
 
@@ -512,7 +521,7 @@ class ApproachNode(Node):
             #Stabilisation PID and v_r feedforward
             a_r_des = self.pid_r.compute(self.r_speed_error, self.dt)
             a_z_des = self.pid_z.compute(self.z_speed_error, self.dt)
-            a_theta_des = self.pid_theta.compute(self.theta_speed_error, self.dt)
+            a_theta_des = self.pid_v_theta.compute(self.theta_speed_error, self.dt)
 
             #Update r_hold if v_r is out of a small deadband (prevents small instabilities)
             if abs(self.filtered_v_r) > 0.04:
@@ -525,13 +534,16 @@ class ApproachNode(Node):
             self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt, -self.tangential_speed_measured)
             
         
-        centrepidal = 0.0
-        if getattr(self, "distance_from_target", None) and self.distance_from_target != 0.0:
-            centrepidal = self.tangential_speed_measured**2 / max(self.distance_from_target, 1e-6)
+
+
+        centrepidal = self.tangential_speed_measured**2 / max(self.distance_from_target, 1e-6)
+        coriolis = -self.tangential_speed_measured*self.radial_speed_measured / max(self.distance_from_target, 1e-6) if getattr(self, "distance_from_target", None) else 0.0
         
         #Centrepedial acceleration limit
-        self.a_r_cmd = a_r_des - centrepidal
-        self.a_theta_cmd = a_theta_des
+        self.a_r_cmd = a_r_des + centrepidal
+        self.a_theta_cmd = a_theta_des + coriolis
+        # Clamp centripetal acceleration
+
         self.a_z_cmd = a_z_des
 
         # Decompose velocities into x and y components
@@ -652,6 +664,7 @@ class ApproachNode(Node):
             self.delta_t = delta_t
 
             self.last_delta_t = delta_t
+
     def filter_vr_callback(self):
         if self.target_pose is None:
             return 

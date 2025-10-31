@@ -11,12 +11,12 @@ def generate_launch_description():
             name="position",
             parameters=[{
                 'alpha': 0.04, #High alpha meaning high v_r change rate allowed, value should be 0.01-0.1
-                'centripetal_limit': 2.0,
+                'centripetal_limit': 1.5,
                 'msg_interval_rate': 25.0,
                 'talk' : True,
-                'pid_r_kd' : 0.5,
-                'pid_r_kp' : 2.5,
-                'pid_r_ki' : 2.0,
+                'pid_r_kd' : 0.1,
+                'pid_r_kp' : 3.75,
+                'pid_r_ki' : 1.0,
             }]
         )
     
