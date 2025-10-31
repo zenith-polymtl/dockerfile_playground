@@ -28,6 +28,11 @@ class SimpleCSV:
         t = vals.get("t", time.monotonic() - self._t0)
         row = [t] + [vals.get(k, "") for k in self.fields[1:]]
         self._w.writerow(row)
+        try:
+            # ensure data is flushed to disk so traces are available promptly
+            self._fh.flush()
+        except Exception:
+            pass
 
     def close(self):
         try:
@@ -134,19 +139,20 @@ class ApproachNode(Node):
         )
         self.pid_theta = PIDController(
             kp=self.pid_theta_kp, ki=self.pid_theta_ki, kd=self.pid_theta_kd,
-            max_i=self.pid_theta_max_i, max_output=self.pid_theta_max_out
+            max_i=self.pid_theta_max_i, max_output=self.pid_theta_max_out, deriv_tau=0.075, d_clip=0.8
         )
         self.pid_z = PIDController(
             kp=self.pid_z_kp, ki=self.pid_z_ki, kd=self.pid_z_kd,
-            max_i=self.pid_z_max_i, max_output=self.pid_z_max_out
+            max_i=self.pid_z_max_i, max_output=self.pid_z_max_out, deriv_tau=0.075, d_clip=0.8
         )
         self.pid_yaw = PIDController(
             kp=self.pid_yaw_kp, ki=self.pid_yaw_ki, kd=self.pid_yaw_kd,
             max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
         )
         self.pid_v_theta = PIDController(
-            kp=2.0, ki=1.5, kd=0.0,
-            max_i=0.4, max_output=0.8
+            kp=4.5, ki=3.5, kd=0.0,
+            max_i=3.0, max_output=5.0,
+            deriv_tau=0.075, d_clip=0.8
         )
 
 
@@ -172,12 +178,40 @@ class ApproachNode(Node):
 
         self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
+        self.a_theta_cmd = 0.0
+        self.a_r_cmd = 0.0
+
+        # initialize acceleration/aux variables that were referenced later but not set
+        self.acc_x = 0.0
+        self.acc_y = 0.0
+        self.acc_z = 0.0
+        self.vel_r = 0.0
+        self.v_cmd = 0.0
+        self.v_theta = 0.0
 
         # --- Backends / Logging (from params) ---
-
+        # Expanded CSV fields to capture setpoint vs command vs response (focus: relative mode)
         self.csv = SimpleCSV(
             path=self.csv_path,
-            fields=["r", "r_hold", "vel_r_measured", "v_r", 'v_r_cmd', "v_theta",'cmd_v', "vel_theta", "v_z", "vel_z", "yaw", "yaw_target"]
+            fields=[
+                "r", "r_hold",
+                # setpoints
+                "set_v_r", "set_v_theta", "set_v_z",
+                # internal filtered setpoint
+                "filtered_v_r",
+                # measured responses
+                "vel_r_measured", "vel_theta_measured", "vel_z_measured",
+                # commanded accelerations (polar)
+                "cmd_acc_r", "cmd_acc_theta", "cmd_acc_z",
+                # commanded accelerations (components)
+                "acc_x", "acc_y", "acc_z",
+                # published velocities (what we publish)
+                "pub_vel_x", "pub_vel_y", "pub_vel_z",
+                # yaw / heading
+                "yaw_enu", "yaw_target", "error_yaw", "total_yaw_err", "yaw_rate",
+                # timing
+                "dt"
+            ]
         )
 
         # --- Periodic jobs ---
@@ -250,7 +284,7 @@ class ApproachNode(Node):
         # yaw
         self.declare_parameter("pid_yaw_kp", 3.0)
         self.declare_parameter("pid_yaw_ki", 1.0)
-        self.declare_parameter("pid_yaw_kd", 0.6)
+        self.declare_parameter("pid_yaw_kd", 0.3)
         self.declare_parameter("pid_yaw_max_i", 0.5)
         self.declare_parameter("pid_yaw_max_out", 6.0)
 
@@ -427,15 +461,18 @@ class ApproachNode(Node):
 
         tangential_unit_vector = -self.unit_vector_to_target[1], self.unit_vector_to_target[0]  # CCW tangent
 
-
         # --- Decompose velocity into radial/tangential components ---
         self.radial_speed_measured = self.drone_speed.x * self.unit_vector_to_target[0] + self.drone_speed.y * self.unit_vector_to_target[1]
         self.tangential_speed_measured = self.drone_speed.x * tangential_unit_vector[0] + self.drone_speed.y * tangential_unit_vector[1]
+        self.vertical_speed_measured = self.drone_speed.z
 
         if self.target_pose.relative:
-            self.v_theta = self.target_pose.v_theta #Directly pass v_theta as target
             self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
             self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
+
+            self.theta_speed_error = self.target_pose.v_theta - self.tangential_speed_measured
+            self.r_speed_error = self.filtered_v_r - self.radial_speed_measured
+            self.z_speed_error = self.target_pose.v_z - self.vertical_speed_measured
 
         else:
             self.r_error = self.distance_from_target - self.target_pose.r #r+ is radial in
@@ -465,15 +502,17 @@ class ApproachNode(Node):
         # clamp dt to kill spikes (and forbid negatives)
         self.dt = max(1e-3, min(self.dt, 0.10))
 
-
-
+        # Ensure defaults so absolute-mode paths don't crash (we primarily focus on relative mode)
+        a_r_des = 0.0
+        a_theta_des = 0.0
+        a_z_des = 0.0
 
         if self.target_pose.relative:
+
             #Stabilisation PID and v_r feedforward
-            
-            self.vel_r = self.pid_r.compute(self.r_error, self.dt, -self.radial_speed_measured) - self.filtered_v_r
-            #Direct vertical speed control
-            self.vel_z = self.target_pose.v_z
+            a_r_des = self.pid_r.compute(self.r_speed_error, self.dt)
+            a_z_des = self.pid_z.compute(self.z_speed_error, self.dt)
+            a_theta_des = self.pid_theta.compute(self.theta_speed_error, self.dt)
 
             #Update r_hold if v_r is out of a small deadband (prevents small instabilities)
             if abs(self.filtered_v_r) > 0.04:
@@ -486,30 +525,26 @@ class ApproachNode(Node):
             self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt, -self.tangential_speed_measured)
             
         
-        centrepidal = self.tangential_speed_measured**2/self.distance_from_target
-        drift_compensation = 1.14*centrepidal
-        self.vel_r += drift_compensation
-        self.v_cmd = self.v_theta
-        self.v_theta += self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt, -self.tangential_speed_measured)
-
+        centrepidal = 0.0
+        if getattr(self, "distance_from_target", None) and self.distance_from_target != 0.0:
+            centrepidal = self.tangential_speed_measured**2 / max(self.distance_from_target, 1e-6)
+        
         #Centrepedial acceleration limit
-        r = max(self.distance_from_target, 1e-6)
-        vtheta_max = math.sqrt(self.centripetal_limit * r)
-        self.v_theta = float(np.clip(self.v_theta, -vtheta_max, vtheta_max))
-        #Limit to 1m/s/s
+        self.a_r_cmd = a_r_des - centrepidal
+        self.a_theta_cmd = a_theta_des
+        self.a_z_cmd = a_z_des
 
         # Decompose velocities into x and y components
-        #Radial speed
-        self.yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target
-        self.bend_correction()
-
-        self.vel_rx, self.vel_ry = self.vel_r*self.unit_vector_to_target[0], self.vel_r*self.unit_vector_to_target[1]
-        self.vel_theta_x, self.vel_theta_y = self.v_theta*-self.unit_vector_to_target[1], self.v_theta*self.unit_vector_to_target[0]
+        self.acc_rx, self.acc_ry = self.a_r_cmd*self.unit_vector_to_target[0], self.a_r_cmd*self.unit_vector_to_target[1]
+        self.acc_theta_x, self.acc_theta_y = self.a_theta_cmd*-self.unit_vector_to_target[1], self.a_theta_cmd*self.unit_vector_to_target[0]
         
-
         #Combination
-        self.vel_x = self.vel_rx + self.vel_theta_x
-        self.vel_y = self.vel_ry + self.vel_theta_y
+        self.acc_x = self.acc_rx + self.acc_theta_x
+        self.acc_y = self.acc_ry + self.acc_theta_y
+        self.acc_z = self.a_z_cmd
+
+        #Radial speed
+        self.yaw_feed_forward = -self.tangential_speed_measured/self.distance_from_target if getattr(self, "distance_from_target", None) else 0.0
 
         #Pilot controls yaw rate, which modifies the goal orientation setpoint
         self.yaw_offset += self.target_pose.yaw_rate*self.dt
@@ -529,22 +564,38 @@ class ApproachNode(Node):
         
         self.yaw_rate += - self.yaw_feed_forward if self.tangential_speed_measured > 0 else self.yaw_feed_forward
 
-        if True:
+        # Comprehensive CSV logging: setpoint vs command vs measured response (relative mode)
+        try:
             self.csv.log(
                 r=getattr(self, "distance_from_target", float("nan")),
                 r_hold=(self.r_hold if self.r_hold is not None else float("nan")),
+                set_v_r=(getattr(self.target_pose, "v_r", float("nan")) if self.target_pose is not None else float("nan")),
+                set_v_theta=(getattr(self.target_pose, "v_theta", float("nan")) if self.target_pose is not None else float("nan")),
+                set_v_z=(getattr(self.target_pose, "v_z", float("nan")) if self.target_pose is not None else float("nan")),
+                filtered_v_r=(self.filtered_v_r if self.filtered_v_r is not None else float("nan")),
                 vel_r_measured=getattr(self, "radial_speed_measured", float("nan")),
-                v_r=(self.filtered_v_r if (self.target_pose and self.filtered_v_r is not None) else 0.0),
-                v_r_cmd = self.vel_r,
-                v_theta=getattr(self, "v_theta", float("nan")),
-                cmd_v = self.v_cmd,
-                vel_theta=getattr(self, "tangential_speed_measured", float("nan")),
-                v_z=getattr(self, "vel_z", float("nan")),
-                vel_z=(getattr(self.drone_speed, "z", float("nan")) if hasattr(self, "drone_speed") else float("nan")),
-                yaw = self.yaw_enu,
-                yaw_target = self.angle_towards_target_rad
+                vel_theta_measured=getattr(self, "tangential_speed_measured", float("nan")),
+                vel_z_measured=getattr(self, "vertical_speed_measured", float("nan")),
+                cmd_acc_r=self.a_r_cmd,
+                cmd_acc_theta=self.a_theta_cmd,
+                cmd_acc_z=self.a_z_cmd,
+                acc_x=self.acc_x,
+                acc_y=self.acc_y,
+                acc_z=self.acc_z,
+                pub_vel_x=getattr(self, "vel_x", float("nan")),
+                pub_vel_y=getattr(self, "vel_y", float("nan")),
+                pub_vel_z=getattr(self, "vel_z", float("nan")),
+                yaw_enu=getattr(self, "yaw_enu", float("nan")),
+                yaw_target=getattr(self, "angle_towards_target_rad", float("nan")),
+                error_yaw=getattr(self, "error_yaw", float("nan")),
+                total_yaw_err=getattr(self, "total_yaw_err", float("nan")),
+                yaw_rate=getattr(self, "yaw_rate", float("nan")),
+                dt=self.dt
             )
-        
+        except Exception as e:
+            # Keep operation robust if logging fails
+            self.get_logger().error(f"CSV logging failed: {e}")
+
         self.send_commands()
 
     def bend_correction(self):
@@ -569,22 +620,23 @@ class ApproachNode(Node):
         target.header.frame_id = "map"  
         target.coordinate_frame = PositionTarget.FRAME_LOCAL_NED
           
-        # Type mask to ignore position and acceleration, use only velocity and yaw  
-        target.type_mask = (  
-            PositionTarget.IGNORE_PX |  
-            PositionTarget.IGNORE_PY |  
-            PositionTarget.IGNORE_PZ |  
-            PositionTarget.IGNORE_AFX |  
-            PositionTarget.IGNORE_AFY |  
-            PositionTarget.IGNORE_AFZ |  
-            PositionTarget.IGNORE_YAW 
+        # Type mask: IGNORE positions and velocities, DO use accelerations and yaw_rate
+        target.type_mask = (
+            PositionTarget.IGNORE_PX |
+            PositionTarget.IGNORE_PY |
+            PositionTarget.IGNORE_PZ |
+            PositionTarget.IGNORE_VX |
+            PositionTarget.IGNORE_VY |
+            PositionTarget.IGNORE_VZ |
+            PositionTarget.IGNORE_YAW   # keep ignoring absolute yaw if you only command yaw_rate
         )  
-          
-        # Set velocity components  
-        target.velocity.x = self.vel_x  
-        target.velocity.y = self.vel_y  
-        target.velocity.z = self.vel_z  
         
+        # Set acceleration components (these are used by MAVLink when velocity bits are ignored)
+        target.acceleration_or_force.x = float(self.acc_x)  
+        target.acceleration_or_force.y = float(self.acc_y)  
+        target.acceleration_or_force.z = float(self.acc_z) 
+        
+        # If you want to command yaw rate, keep this; otherwise set yaw and clear IGNORE_YAW
         target.yaw_rate = float(self.yaw_rate)
           
         self.publisher_raw.publish(target)
@@ -600,10 +652,6 @@ class ApproachNode(Node):
             self.delta_t = delta_t
 
             self.last_delta_t = delta_t
-    
-    def drone_speed_callback(self, msg):
-        self.drone_speed = msg.twist.linear
-
     def filter_vr_callback(self):
         if self.target_pose is None:
             return 
@@ -616,14 +664,6 @@ class ApproachNode(Node):
         else:
             self.filtered_v_r = 0
 
-    def goal_pose_callback(self, msg):
-        self.target_pose = msg
-        self.target_pose.theta = (-msg.theta+90)/180*np.pi
-        #self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.filtered_v_r}, relative={self.target_pose.relative}")
-
-    def estimation_callback(self, msg):
-        self.estimated_target_pose = msg.pose.position
-
     def drone_pose_callback(self, msg):
         self.start_time = time.monotonic()
         self.drone_pose = msg.pose.position
@@ -632,11 +672,20 @@ class ApproachNode(Node):
                 self.last_time = time.monotonic()
             else:
                 self.compute_estimated_state()
-    
-        
+
+    def drone_speed_callback(self, msg):
+        self.drone_speed = msg.twist.linear
+
+    def goal_pose_callback(self, msg):
+        self.target_pose = msg
+        self.target_pose.theta = (-msg.theta+90)/180*np.pi
+        #self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.filtered_v_r}, relative={self.target_pose.relative}")
+
+    def estimation_callback(self, msg):
+        self.estimated_target_pose = msg.pose.position
 
     def publish_zero(self):
-        # One last zero-velocity setpoint
+        # One last zero-acceleration setpoint (use accelerations, not velocities)
         target = PositionTarget()
         target.header.stamp = self.get_clock().now().to_msg()
         target.header.frame_id = "map"
@@ -645,27 +694,23 @@ class ApproachNode(Node):
             PositionTarget.IGNORE_PX |
             PositionTarget.IGNORE_PY |
             PositionTarget.IGNORE_PZ |
-            PositionTarget.IGNORE_AFX |
-            PositionTarget.IGNORE_AFY |
-            PositionTarget.IGNORE_AFZ |
-            PositionTarget.IGNORE_YAW_RATE
+            PositionTarget.IGNORE_VX |
+            PositionTarget.IGNORE_VY |
+            PositionTarget.IGNORE_VZ |
+            PositionTarget.IGNORE_YAW   # keep ignoring absolute yaw if using yaw_rate
         )
-        target.velocity.x = 0.0
-        target.velocity.y = 0.0
-        target.velocity.z = 0.0
+
+        # Zero accelerations
+        target.acceleration_or_force.x = 0.0
+        target.acceleration_or_force.y = 0.0
+        target.acceleration_or_force.z = 0.0
         target.yaw_rate = 0.0
 
-        # Keep yaw stable if we can compute it; otherwise ignore yaw entirely.
-        if self.estimated_target_pose is not None and self.drone_pose is not None:
-            target.yaw = np.arctan2(
-                self.estimated_target_pose.y - self.drone_pose.y,
-                self.estimated_target_pose.x - self.drone_pose.x
-            )
-        else:
-            target.type_mask |= PositionTarget.IGNORE_YAW_RATE
+        # If you prefer to command a zero velocity instead, switch type_mask to ignore accelerations
+        # and set target.velocity.x/y/z = 0.0
 
         self.publisher_raw.publish(target)
-        self.get_logger().info("Published final ZERO velocity setpoint.")
+        self.get_logger().info("Published final ZERO acceleration setpoint.")
 
 
 
