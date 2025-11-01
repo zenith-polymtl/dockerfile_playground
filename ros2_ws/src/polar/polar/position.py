@@ -241,15 +241,18 @@ class ApproachNode(Node):
 
         self.control_rate = 25.0  # main control loop
         self.control_timer = self.create_timer(1.0 / self.control_rate, self.compute_estimated_state)
-        hz = 25.0  # control smoothing timer; make a param later if you want
+        hz = 25.0  # control smoothing timer
         self.smooth_timer = self.create_timer(1.0 / hz, self.filter_vr_callback)
-        # alpha already set from params in _declare_params() -> self.alpha
 
         if self.talk:
             hz = 4
             self.info_timer = self.create_timer(1/hz, self.info_callback)
             self.get_logger().info("Polar positioning node started")
 
+        if self.log:
+            hz = 10
+            self.log_timer = self.create_timer(1/hz, self.log_callback)
+            self.get_logger().info("Polar positioning node started")
 
     
     def _declare_params(self):
@@ -325,6 +328,7 @@ class ApproachNode(Node):
 
         # extra bool (fixed typo)
         self.declare_parameter("talk", True)
+        self.declare_parameter("log", True)
 
         # ---------- variable attribution (cache values) ----------
         gp = self.get_parameter  # short alias
@@ -390,6 +394,7 @@ class ApproachNode(Node):
         self.pid_v_theta_d_clip = float(gp("pid_v_theta_d_clip").value)
 
         self.talk            = bool(gp("talk").value)
+        self.log             = bool(gp("log").value)
 
 
     def setup_message_intervals(self):
@@ -615,51 +620,6 @@ class ApproachNode(Node):
         
         self.yaw_rate += - self.yaw_feed_forward if self.tangential_speed_measured > 0 else self.yaw_feed_forward
 
-        # Comprehensive CSV logging: setpoint vs command vs measured response (relative mode)
-        try:
-            self.csv.log(
-                radius=getattr(self, "distance_from_target", float("nan")),
-                # radial
-                set_speed_r=(getattr(self.target_pose, "v_r", float("nan")) if self.target_pose is not None else float("nan")),
-                set_speed_r_filtered=(self.filtered_v_r if self.filtered_v_r is not None else float("nan")),
-                meas_speed_r=getattr(self, "radial_speed_measured", float("nan")),
-                acc_cmd_r=self.a_r_cmd,
-                # tangential (theta)
-                set_speed_theta=(getattr(self.target_pose, "v_theta", float("nan")) if self.target_pose is not None else float("nan")),
-                meas_speed_theta=getattr(self, "tangential_speed_measured", float("nan")),
-                acc_cmd_theta=self.a_theta_cmd,
-                # vertical
-                set_speed_z=(getattr(self.target_pose, "v_z", float("nan")) if self.target_pose is not None else float("nan")),
-                meas_speed_z=getattr(self, "vertical_speed_measured", float("nan")),
-                acc_cmd_z=self.a_z_cmd,
-                # components & published velocities
-                acc_x=self.acc_x,
-                acc_y=self.acc_y,
-                acc_z=self.acc_z,
-                pub_vel_x=getattr(self, "vel_x", float("nan")),
-                pub_vel_y=getattr(self, "vel_y", float("nan")),
-                pub_vel_z=getattr(self, "vel_z", float("nan")),
-                # PID P/I/D terms (main controllers)
-                pid_r_P=(getattr(self.pid_r, "last_p", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
-                pid_r_I=(getattr(self.pid_r, "last_i", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
-                pid_r_D=(getattr(self.pid_r, "last_d", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
-                pid_vtheta_P=(getattr(self.pid_v_theta, "last_p", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
-                pid_vtheta_I=(getattr(self.pid_v_theta, "last_i", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
-                pid_vtheta_D=(getattr(self.pid_v_theta, "last_d", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
-                pid_z_P=(getattr(self.pid_z, "last_p", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
-                pid_z_I=(getattr(self.pid_z, "last_i", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
-                pid_z_D=(getattr(self.pid_z, "last_d", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
-                # yaw / heading
-                yaw_enu=getattr(self, "yaw_enu", float("nan")),
-                yaw_target=getattr(self, "angle_towards_target_rad", float("nan")),
-                error_yaw=getattr(self, "error_yaw", float("nan")),
-                total_yaw_err=getattr(self, "total_yaw_err", float("nan")),
-                yaw_rate=getattr(self, "yaw_rate", float("nan")),
-                dt=self.dt
-            )
-        except Exception as e:
-            # Keep operation robust if logging fails
-            self.get_logger().error(f"CSV logging failed: {e}")
 
         self.send_commands()
 
@@ -716,6 +676,56 @@ class ApproachNode(Node):
             self.filtered_v_r += delta
         else:
             self.filtered_v_r = 0
+
+
+    def log_callback(self):
+        # Comprehensive CSV logging: setpoint vs command vs measured response (relative mode)
+        if not self.approach_active:
+            return
+        try:
+            self.csv.log(
+                radius=getattr(self, "distance_from_target", float("nan")),
+                # radial
+                set_speed_r=(getattr(self.target_pose, "v_r", float("nan")) if self.target_pose is not None else float("nan")),
+                set_speed_r_filtered=(self.filtered_v_r if self.filtered_v_r is not None else float("nan")),
+                meas_speed_r=getattr(self, "radial_speed_measured", float("nan")),
+                acc_cmd_r=self.a_r_cmd,
+                # tangential (theta)
+                set_speed_theta=(getattr(self.target_pose, "v_theta", float("nan")) if self.target_pose is not None else float("nan")),
+                meas_speed_theta=getattr(self, "tangential_speed_measured", float("nan")),
+                acc_cmd_theta=self.a_theta_cmd,
+                # vertical
+                set_speed_z=(getattr(self.target_pose, "v_z", float("nan")) if self.target_pose is not None else float("nan")),
+                meas_speed_z=getattr(self, "vertical_speed_measured", float("nan")),
+                acc_cmd_z=self.a_z_cmd,
+                # components & published velocities
+                acc_x=self.acc_x,
+                acc_y=self.acc_y,
+                acc_z=self.acc_z,
+                pub_vel_x=getattr(self, "vel_x", float("nan")),
+                pub_vel_y=getattr(self, "vel_y", float("nan")),
+                pub_vel_z=getattr(self, "vel_z", float("nan")),
+                # PID P/I/D terms (main controllers)
+                pid_r_P=(getattr(self.pid_r, "last_p", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
+                pid_r_I=(getattr(self.pid_r, "last_i", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
+                pid_r_D=(getattr(self.pid_r, "last_d", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
+                pid_vtheta_P=(getattr(self.pid_v_theta, "last_p", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
+                pid_vtheta_I=(getattr(self.pid_v_theta, "last_i", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
+                pid_vtheta_D=(getattr(self.pid_v_theta, "last_d", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
+                pid_z_P=(getattr(self.pid_z, "last_p", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
+                pid_z_I=(getattr(self.pid_z, "last_i", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
+                pid_z_D=(getattr(self.pid_z, "last_d", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
+                # yaw / heading
+                yaw_enu=getattr(self, "yaw_enu", float("nan")),
+                yaw_target=getattr(self, "angle_towards_target_rad", float("nan")),
+                error_yaw=getattr(self, "error_yaw", float("nan")),
+                total_yaw_err=getattr(self, "total_yaw_err", float("nan")),
+                yaw_rate=getattr(self, "yaw_rate", float("nan")),
+                dt=self.dt
+            )
+        except Exception as e:
+            # Keep operation robust if logging fails
+            self.get_logger().error(f"CSV logging failed: {e}")
 
     def drone_pose_callback(self, msg):
         self.drone_pose = msg.pose.position
