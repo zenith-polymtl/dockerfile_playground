@@ -14,7 +14,7 @@ def generate_launch_description():
                 'centripetal_limit': 1.5,
                 'msg_interval_rate': 25.0,
                 'talk' : True,
-                'pid_r_kd' : 0.1,
+                'pid_r_kd' : 0.0,
                 'pid_r_kp' : 3.75,
                 'pid_r_ki' : 1.0,
             }]

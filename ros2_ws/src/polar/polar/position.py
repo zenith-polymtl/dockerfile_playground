@@ -54,6 +54,10 @@ class PIDController():
         self.deriv_tau = deriv_tau  # [s], 0.06–0.12 works well at 30 Hz
         self._d_state = 0.0
         self.d_clip = d_clip
+        # expose last computed PID components for logging
+        self.last_p = 0.0
+        self.last_i = 0.0
+        self.last_d = 0.0
 
 
     def compute(self, error, dt, d_meas=None):
@@ -61,16 +65,22 @@ class PIDController():
         # I
         self.integral += error * dt
         self.integral = max(-self.max_i, min(self.integral, self.max_i))
-        ##àSecond order backward derivative. If d_meas is provided, it's already a rate.
+        # store I term (ki*integral) for logging
+        self.last_i = self.ki * self.integral
+        # P term for logging
+        self.last_p = self.kp * error
+        #Second order backward derivative. If d_meas is provided, it's already a rate.
         raw_d = d_meas if d_meas is not None else (3*error - 4*self.prev_error + self.prev_error2)/ (2*dt)
-        #Second order backward derivative
+        # Low-pass filter
         a = self.deriv_tau / (self.deriv_tau + dt)  # 0<a<1
         self._d_state = a*self._d_state + (1.0 - a)*raw_d
         dterm = self.kd * self._d_state
         if self.d_clip is not None:
             dterm = max(-self.d_clip, min(dterm, self.d_clip))
+        # store D term (post clipping) for logging
+        self.last_d = dterm
         # Sum & clamp
-        u = self.kp*error + self.ki*self.integral + dterm
+        u = self.last_p + self.last_i + dterm
         self.prev_error2 = self.prev_error
         self.prev_error = error
         
@@ -156,11 +166,15 @@ class ApproachNode(Node):
             max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
         )
         self.pid_v_theta = PIDController(
-            kp=2.5, ki=1.0, kd=0.5,
-            max_i=0.2, max_output=5.0,
-            deriv_tau=0.1, d_clip=0.3
+            kp=self.pid_v_theta_kp, ki=self.pid_v_theta_ki, kd=self.pid_v_theta_kd,
+            max_i=self.pid_v_theta_max_i, max_output=self.pid_v_theta_max_out,
+            deriv_tau=self.pid_v_theta_deriv_tau, d_clip=self.pid_v_theta_d_clip
         )
-
+        
+        self.pid_z_abs = PIDController(
+            kp=1.0, ki=0.0, kd=0.5,
+            max_i=0.5, max_output=2.0
+        )
 
         # --- State ---
         self.estimated_target_pose = None # ananas !!!!
@@ -200,19 +214,22 @@ class ApproachNode(Node):
         self.csv = SimpleCSV(
             path=self.csv_path,
             fields=[
-                "r", "r_hold",
-                # setpoints
-                "set_v_r", "set_v_theta", "set_v_z",
-                # internal filtered setpoint
-                "filtered_v_r",
-                # measured responses
-                "vel_r_measured", "vel_theta_measured", "vel_z_measured",
-                # commanded accelerations (polar)
-                "cmd_acc_r", "cmd_acc_theta", "cmd_acc_z",
+                # radius
+                "radius",
+                # radial speeds & acc
+                "set_speed_r", "set_speed_r_filtered", "meas_speed_r", "acc_cmd_r",
+                # tangential speeds & acc
+                "set_speed_theta", "meas_speed_theta", "acc_cmd_theta",
+                # vertical speeds & acc
+                "set_speed_z", "meas_speed_z", "acc_cmd_z",
                 # commanded accelerations (components)
                 "acc_x", "acc_y", "acc_z",
                 # published velocities (what we publish)
                 "pub_vel_x", "pub_vel_y", "pub_vel_z",
+                # PID components (P/I/D) for main controllers
+                "pid_r_P", "pid_r_I", "pid_r_D",
+                "pid_vtheta_P", "pid_vtheta_I", "pid_vtheta_D",
+                "pid_z_P", "pid_z_I", "pid_z_D",
                 # yaw / heading
                 "yaw_enu", "yaw_target", "error_yaw", "total_yaw_err", "yaw_rate",
                 # timing
@@ -221,7 +238,10 @@ class ApproachNode(Node):
         )
 
         # --- Periodic jobs ---
-        hz = 20.0  # control smoothing timer; make a param later if you want
+
+        self.control_rate = 25.0  # main control loop
+        self.control_timer = self.create_timer(1.0 / self.control_rate, self.compute_estimated_state)
+        hz = 25.0  # control smoothing timer; make a param later if you want
         self.smooth_timer = self.create_timer(1.0 / hz, self.filter_vr_callback)
         # alpha already set from params in _declare_params() -> self.alpha
 
@@ -256,20 +276,20 @@ class ApproachNode(Node):
         #MAVLink config
 
         self.declare_parameter("set_msg_interval", True)
-        self.declare_parameter("msg_interval_rate", 20.0)   # Hz
+        self.declare_parameter("msg_interval_rate", 25.0)   # Hz
 
         # PID params (flat for simplicity)
         # r (relative mode stabilizer)
-        self.declare_parameter("pid_r_kp", 5.0)
+        self.declare_parameter("pid_r_kp", 3.75)
         self.declare_parameter("pid_r_ki", 1.0)
-        self.declare_parameter("pid_r_kd", 3.5)
+        self.declare_parameter("pid_r_kd", 0.0)
         self.declare_parameter("pid_r_max_i", 1.0)
-        self.declare_parameter("pid_r_max_out", 5.0)
+        self.declare_parameter("pid_r_max_out", 2.0)
 
         # r_abs (absolute radius controller)
-        self.declare_parameter("pid_rabs_kp", 1.5)
+        self.declare_parameter("pid_rabs_kp", 1.0)
         self.declare_parameter("pid_rabs_ki", 0.0)
-        self.declare_parameter("pid_rabs_kd", 1.5)
+        self.declare_parameter("pid_rabs_kd", 0.6)
         self.declare_parameter("pid_rabs_max_i", 1.2)
         self.declare_parameter("pid_rabs_max_out", 2.0)
 
@@ -293,6 +313,15 @@ class ApproachNode(Node):
         self.declare_parameter("pid_yaw_kd", 0.3)
         self.declare_parameter("pid_yaw_max_i", 0.5)
         self.declare_parameter("pid_yaw_max_out", 6.0)
+
+        # pid_v_theta (velocity around theta controller)
+        self.declare_parameter("pid_v_theta_kp", 2.5)
+        self.declare_parameter("pid_v_theta_ki", 1.0)
+        self.declare_parameter("pid_v_theta_kd", 0.0)
+        self.declare_parameter("pid_v_theta_max_i", 0.2)
+        self.declare_parameter("pid_v_theta_max_out", 2.25)
+        self.declare_parameter("pid_v_theta_deriv_tau", 0.0)
+        self.declare_parameter("pid_v_theta_d_clip", 0.3)
 
         # extra bool (fixed typo)
         self.declare_parameter("talk", True)
@@ -351,6 +380,15 @@ class ApproachNode(Node):
         self.pid_yaw_max_i   = float(gp("pid_yaw_max_i").value)
         self.pid_yaw_max_out = float(gp("pid_yaw_max_out").value)
 
+        # pid_v_theta params
+        self.pid_v_theta_kp = float(gp("pid_v_theta_kp").value)
+        self.pid_v_theta_ki = float(gp("pid_v_theta_ki").value)
+        self.pid_v_theta_kd = float(gp("pid_v_theta_kd").value)
+        self.pid_v_theta_max_i = float(gp("pid_v_theta_max_i").value)
+        self.pid_v_theta_max_out = float(gp("pid_v_theta_max_out").value)
+        self.pid_v_theta_deriv_tau = float(gp("pid_v_theta_deriv_tau").value)
+        self.pid_v_theta_d_clip = float(gp("pid_v_theta_d_clip").value)
+
         self.talk            = bool(gp("talk").value)
 
 
@@ -364,12 +402,12 @@ class ApproachNode(Node):
             
             request = MessageInterval.Request()  
             request.message_id = 32  
-            request.message_rate = 30.0  
+            request.message_rate = self.control_rate 
 
             request2 = MessageInterval.Request()  
             request2.message_id = 33  
-            request2.message_rate = 30.0  
-            
+            request2.message_rate = self.control_rate
+
             future = self.msg_interval_client.call_async(request2)  
             future.add_done_callback(self.message_interval_callback) 
 
@@ -440,14 +478,14 @@ class ApproachNode(Node):
         self.hdg_deg = msg.data
 
     def compute_estimated_state(self):
-        if not self.approach_active or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None:
+        if not self.approach_active or self.target_pose is None or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None:
             return None
         
 
         if self.estimated_target_pose is None:
             self.get_logger().info("No estimated target pose available")
             return None
-        
+        self.start_time = time.monotonic()
         #Compute linear distances with target
         delta_x = self.estimated_target_pose.x - self.drone_pose.x
         delta_y = self.estimated_target_pose.y - self.drone_pose.y
@@ -517,22 +555,20 @@ class ApproachNode(Node):
         a_z_des = 0.0
 
         if self.target_pose.relative:
-
-            #Stabilisation PID and v_r feedforward
+            #Computed required accelerations based on speed errors directly
             a_r_des = self.pid_r.compute(self.r_speed_error, self.dt)
             a_z_des = self.pid_z.compute(self.z_speed_error, self.dt)
             a_theta_des = self.pid_v_theta.compute(self.theta_speed_error, self.dt)
-
-            #Update r_hold if v_r is out of a small deadband (prevents small instabilities)
-            if abs(self.filtered_v_r) > 0.04:
-                self.r_hold += self.filtered_v_r * self.dt
-                
+     
         else:
-            # Compute speeds based of absolute error
+            # Compute speeds based of absolute position error -> Speed -> Acceleration
             self.vel_r = self.pid_r_abs.compute(self.r_error, self.dt, -self.radial_speed_measured)
-            self.vel_z = self.pid_z.compute(self.z_error, self.dt, self.drone_speed.z)
+            self.vel_z = self.pid_z_abs.compute(self.z_error, self.dt, self.drone_speed.z)
             self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt, -self.tangential_speed_measured)
             
+            a_r_des = self.pid_r.compute(self.vel_r - self.radial_speed_measured, self.dt)
+            a_z_des = self.pid_z.compute(self.vel_z - self.drone_speed.z, self.dt)
+            a_theta_des = self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt)
         
 
 
@@ -542,9 +578,12 @@ class ApproachNode(Node):
         #Centrepedial acceleration limit
         self.a_r_cmd = a_r_des + centrepidal
         self.a_theta_cmd = a_theta_des + coriolis
-        # Clamp centripetal acceleration
-
         self.a_z_cmd = a_z_des
+        
+        # Clamp commands to reasonable values
+        self.a_r_cmd = max(min(self.a_r_cmd, 3.0), -3.0)
+        self.a_theta_cmd = max(min(self.a_theta_cmd, 3.0), -3.0)
+        self.a_z_cmd = max(min(self.a_z_cmd, 3.0), -3.0)
 
         # Decompose velocities into x and y components
         self.acc_rx, self.acc_ry = self.a_r_cmd*self.unit_vector_to_target[0], self.a_r_cmd*self.unit_vector_to_target[1]
@@ -579,24 +618,38 @@ class ApproachNode(Node):
         # Comprehensive CSV logging: setpoint vs command vs measured response (relative mode)
         try:
             self.csv.log(
-                r=getattr(self, "distance_from_target", float("nan")),
-                r_hold=(self.r_hold if self.r_hold is not None else float("nan")),
-                set_v_r=(getattr(self.target_pose, "v_r", float("nan")) if self.target_pose is not None else float("nan")),
-                set_v_theta=(getattr(self.target_pose, "v_theta", float("nan")) if self.target_pose is not None else float("nan")),
-                set_v_z=(getattr(self.target_pose, "v_z", float("nan")) if self.target_pose is not None else float("nan")),
-                filtered_v_r=(self.filtered_v_r if self.filtered_v_r is not None else float("nan")),
-                vel_r_measured=getattr(self, "radial_speed_measured", float("nan")),
-                vel_theta_measured=getattr(self, "tangential_speed_measured", float("nan")),
-                vel_z_measured=getattr(self, "vertical_speed_measured", float("nan")),
-                cmd_acc_r=self.a_r_cmd,
-                cmd_acc_theta=self.a_theta_cmd,
-                cmd_acc_z=self.a_z_cmd,
+                radius=getattr(self, "distance_from_target", float("nan")),
+                # radial
+                set_speed_r=(getattr(self.target_pose, "v_r", float("nan")) if self.target_pose is not None else float("nan")),
+                set_speed_r_filtered=(self.filtered_v_r if self.filtered_v_r is not None else float("nan")),
+                meas_speed_r=getattr(self, "radial_speed_measured", float("nan")),
+                acc_cmd_r=self.a_r_cmd,
+                # tangential (theta)
+                set_speed_theta=(getattr(self.target_pose, "v_theta", float("nan")) if self.target_pose is not None else float("nan")),
+                meas_speed_theta=getattr(self, "tangential_speed_measured", float("nan")),
+                acc_cmd_theta=self.a_theta_cmd,
+                # vertical
+                set_speed_z=(getattr(self.target_pose, "v_z", float("nan")) if self.target_pose is not None else float("nan")),
+                meas_speed_z=getattr(self, "vertical_speed_measured", float("nan")),
+                acc_cmd_z=self.a_z_cmd,
+                # components & published velocities
                 acc_x=self.acc_x,
                 acc_y=self.acc_y,
                 acc_z=self.acc_z,
                 pub_vel_x=getattr(self, "vel_x", float("nan")),
                 pub_vel_y=getattr(self, "vel_y", float("nan")),
                 pub_vel_z=getattr(self, "vel_z", float("nan")),
+                # PID P/I/D terms (main controllers)
+                pid_r_P=(getattr(self.pid_r, "last_p", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
+                pid_r_I=(getattr(self.pid_r, "last_i", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
+                pid_r_D=(getattr(self.pid_r, "last_d", float("nan")) if getattr(self, "pid_r", None) else float("nan")),
+                pid_vtheta_P=(getattr(self.pid_v_theta, "last_p", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
+                pid_vtheta_I=(getattr(self.pid_v_theta, "last_i", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
+                pid_vtheta_D=(getattr(self.pid_v_theta, "last_d", float("nan")) if getattr(self, "pid_v_theta", None) else float("nan")),
+                pid_z_P=(getattr(self.pid_z, "last_p", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
+                pid_z_I=(getattr(self.pid_z, "last_i", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
+                pid_z_D=(getattr(self.pid_z, "last_d", float("nan")) if getattr(self, "pid_z", None) else float("nan")),
+                # yaw / heading
                 yaw_enu=getattr(self, "yaw_enu", float("nan")),
                 yaw_target=getattr(self, "angle_towards_target_rad", float("nan")),
                 error_yaw=getattr(self, "error_yaw", float("nan")),
@@ -609,19 +662,6 @@ class ApproachNode(Node):
             self.get_logger().error(f"CSV logging failed: {e}")
 
         self.send_commands()
-
-    def bend_correction(self):
-        r = self.distance_from_target
-        arc = self.v_theta * self.dt
-        theta = arc / r
-        x = r*math.sin(theta)
-        y = r*(1-math.cos(theta))
-        phi = math.atan2(y, x)
-        D = math.hypot(x, y)
-        v2 = D / self.dt
-        self.v_theta = v2*math.cos(phi)
-        self.vel_r   -= v2*math.sin(phi)
-
 
     def send_commands(self):  
         if self.estimated_target_pose is None or self.target_pose is None:
@@ -678,13 +718,8 @@ class ApproachNode(Node):
             self.filtered_v_r = 0
 
     def drone_pose_callback(self, msg):
-        self.start_time = time.monotonic()
         self.drone_pose = msg.pose.position
-        if self.target_pose is not None and self.estimated_target_pose is not None:
-            if self.last_time is None:
-                self.last_time = time.monotonic()
-            else:
-                self.compute_estimated_state()
+
 
     def drone_speed_callback(self, msg):
         self.drone_speed = msg.twist.linear
@@ -692,13 +727,13 @@ class ApproachNode(Node):
     def goal_pose_callback(self, msg):
         self.target_pose = msg
         self.target_pose.theta = (-msg.theta+90)/180*np.pi
-        #self.get_logger().info(f"Received target pose: r={self.target_pose.r}, z={self.target_pose.z}, theta={self.target_pose.theta}, v_theta={self.target_pose.v_theta}, v_r={self.filtered_v_r}, relative={self.target_pose.relative}")
+
 
     def estimation_callback(self, msg):
         self.estimated_target_pose = msg.pose.position
 
     def publish_zero(self):
-        # One last zero-acceleration setpoint (use accelerations, not velocities)
+        # One last zero-velocity setpoint
         target = PositionTarget()
         target.header.stamp = self.get_clock().now().to_msg()
         target.header.frame_id = "map"
@@ -707,23 +742,26 @@ class ApproachNode(Node):
             PositionTarget.IGNORE_PX |
             PositionTarget.IGNORE_PY |
             PositionTarget.IGNORE_PZ |
-            PositionTarget.IGNORE_VX |
-            PositionTarget.IGNORE_VY |
-            PositionTarget.IGNORE_VZ |
-            PositionTarget.IGNORE_YAW   # keep ignoring absolute yaw if using yaw_rate
+            PositionTarget.IGNORE_AFX |
+            PositionTarget.IGNORE_AFY |
+            PositionTarget.IGNORE_AFZ |
+            PositionTarget.IGNORE_YAW_RATE
         )
+        target.velocity.x = 0.0
+        target.velocity.y = 0.0
+        target.velocity.z = 0.0
 
-        # Zero accelerations
-        target.acceleration_or_force.x = 0.0
-        target.acceleration_or_force.y = 0.0
-        target.acceleration_or_force.z = 0.0
-        target.yaw_rate = 0.0
-
-        # If you prefer to command a zero velocity instead, switch type_mask to ignore accelerations
-        # and set target.velocity.x/y/z = 0.0
+        # Keep yaw stable if we can compute it; otherwise ignore yaw entirely.
+        if self.estimated_target_pose is not None and self.drone_pose is not None:
+            target.yaw = np.arctan2(
+                self.estimated_target_pose.y - self.drone_pose.y,
+                self.estimated_target_pose.x - self.drone_pose.x
+            )
+        else:
+            target.type_mask |= PositionTarget.IGNORE_YAW_RATE
 
         self.publisher_raw.publish(target)
-        self.get_logger().info("Published final ZERO acceleration setpoint.")
+        self.get_logger().info("Published final ZERO velocity setpoint.")
 
 
 
