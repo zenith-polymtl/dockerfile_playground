@@ -91,6 +91,63 @@ class PIDController():
 
 def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
 
+
+class soft_pos_hold:
+    def __init__(self, pid,
+                 on_vel=0.20, off_vel=0.30,  # hysteresis on measured |vel|
+                 on_cmd=0.04, off_cmd=0.06,
+                 wrap_fn=None): # hysteresis on |cmd_vel|
+        self.pid = pid
+        self.last_lock_activation = False
+        self.lock_activation = False
+        self.lock_position = 0.0
+        self.on_vel, self.off_vel = on_vel, off_vel
+        self.on_cmd, self.off_cmd = on_cmd, off_cmd
+        self.wrap_fn = wrap_fn 
+
+    def reset(self):
+        self.last_lock_activation = False
+        self.lock_activation = False
+        self.lock_position = 0.0
+        #reset pid values
+        self.pid.prev_error = 0.0
+        self.pid.prev_error2 = 0.0
+        self.pid.integral = 0.0
+
+    def compute(self, position, vel, cmd_vel, dt, deriv_pid_sign = 1):
+    
+        if cmd_vel is None or dt <= 0.0:
+            # not enough info; treat as unlocked
+            self.lock_activation = False
+            self.last_lock_activation = False
+            return 0.0
+
+        # --- hysteresis logic ---
+        if not self.lock_activation:
+            want_lock = (abs(vel) <= self.on_vel) and (abs(cmd_vel) <= self.on_cmd)
+        else:
+            # stay locked until user command clearly leaves deadband
+            want_lock =  (abs(cmd_vel) <= self.off_cmd)
+
+        self.lock_activation = want_lock
+
+        # edge: just entered lock → latch position once
+        if self.lock_activation and not self.last_lock_activation:
+            self.lock_position = float(position)
+        elif not self.lock_activation and self.last_lock_activation:
+            self.reset()
+
+        # compute correction if locked
+        out = 0.0
+        if self.lock_activation:
+            error = self.lock_position - float(position)
+            error = error if self.wrap_fn is None else self.wrap_fn(error)
+            out = self.pid.compute(error, dt, d_meas=float(vel)*deriv_pid_sign)
+
+
+        self.last_lock_activation = self.lock_activation
+        return out
+
 class ApproachNode(Node):
     def __init__(self):
         super().__init__("approach_node")
@@ -144,37 +201,12 @@ class ApproachNode(Node):
         self.abort_state_pub = self.create_publisher(String, '/abort_brake', qos_profile)
 
 
-        # --- Controllers (gains/limits from params) ---
-        self.pid_r = PIDController(
-            kp=self.pid_r_kp, ki=self.pid_r_ki, kd=self.pid_r_kd,
-            max_i=self.pid_r_max_i, deriv_tau=0.0,  max_output=self.pid_r_max_out
-        )
-        self.pid_r_abs = PIDController(
-            kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
-            max_i=self.pid_rabs_max_i, max_output=self.pid_rabs_max_out
-        )
-        self.pid_theta = PIDController(
-            kp=self.pid_theta_kp, ki=self.pid_theta_ki, kd=self.pid_theta_kd,
-            max_i=self.pid_theta_max_i, max_output=self.pid_theta_max_out, deriv_tau=0.075, d_clip=0.8
-        )
-        self.pid_z = PIDController(
-            kp=self.pid_z_kp, ki=self.pid_z_ki, kd=self.pid_z_kd,
-            max_i=self.pid_z_max_i, max_output=self.pid_z_max_out, deriv_tau=0.075, d_clip=0.8
-        )
-        self.pid_yaw = PIDController(
-            kp=self.pid_yaw_kp, ki=self.pid_yaw_ki, kd=self.pid_yaw_kd,
-            max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
-        )
-        self.pid_v_theta = PIDController(
-            kp=self.pid_v_theta_kp, ki=self.pid_v_theta_ki, kd=self.pid_v_theta_kd,
-            max_i=self.pid_v_theta_max_i, max_output=self.pid_v_theta_max_out,
-            deriv_tau=self.pid_v_theta_deriv_tau, d_clip=self.pid_v_theta_d_clip
-        )
-        
-        self.pid_z_abs = PIDController(
-            kp=1.0, ki=0.0, kd=0.5,
-            max_i=0.5, max_output=2.0
-        )
+        self._intialise_controllers()
+
+        self.z_pos_hold = soft_pos_hold(self.pid_z_hold)
+        self.r_pos_hold = soft_pos_hold(self.pid_r_hold)
+        self.theta_pos_hold = soft_pos_hold(self.pid_theta_hold)
+
 
         # --- State ---
         self.estimated_target_pose = None # ananas !!!!
@@ -188,14 +220,13 @@ class ApproachNode(Node):
         self.first = True
         self.r_ref = None
         self.yaw = None
-        self.r_hold = None
         self.filtered_v_r = None
         self.approach_active = False
         self.last_delta_t = None
         self.total_yaw_err = None
         self.delta_t = None
         self.hdg_deg = None
-
+        self.dt = None
         self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
         self.a_theta_cmd = 0.0
@@ -232,6 +263,13 @@ class ApproachNode(Node):
                 "pid_z_P", "pid_z_I", "pid_z_D",
                 # yaw / heading
                 "yaw_enu", "yaw_target", "error_yaw", "total_yaw_err", "yaw_rate",
+                # --- new fields for soft_pos_hold & positions ---
+                "drone_z", "target_z",
+                "r_lock_position", "r_lock_active", "r_pid_P", "r_pid_I", "r_pid_D",
+                "z_lock_position", "z_lock_active", "z_pid_P", "z_pid_I", "z_pid_D",
+                # theta hold: actual/target/lock & PID
+                "theta_actual", "theta_target", "theta_lock_position", "theta_lock_active",
+                "theta_pid_P", "theta_pid_I", "theta_pid_D",
                 # timing
                 "dt"
             ]
@@ -254,7 +292,55 @@ class ApproachNode(Node):
             self.log_timer = self.create_timer(1/hz, self.log_callback)
             self.get_logger().info("Polar positioning node started")
 
-    
+    def _intialise_controllers(self):
+        # --- Controllers (gains/limits from params) ---
+        self.pid_r = PIDController(
+            kp=self.pid_r_kp, ki=self.pid_r_ki, kd=self.pid_r_kd,
+            max_i=self.pid_r_max_i, deriv_tau=0.0,  max_output=self.pid_r_max_out
+        )
+        self.pid_z_hold= PIDController(
+            kp=0.3, ki=0.1, kd=0.15,
+            max_i=0.5, max_output=3.0,
+            deriv_tau=0.1
+        )
+        self.pid_theta_hold= PIDController(
+            kp=0.6, ki=0.2, kd=0.3,
+            max_i=0.5, max_output=3.0,
+            deriv_tau=0.1
+        )
+        self.pid_r_hold = PIDController(
+            kp=0.3, ki=0.1, kd=0.15,
+            max_i=0.5, max_output=3.0,
+            deriv_tau=0.1
+        )
+        self.pid_r_abs = PIDController(
+            kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
+            max_i=self.pid_rabs_max_i, max_output=self.pid_rabs_max_out
+        )
+        self.pid_theta = PIDController(
+            kp=self.pid_theta_kp, ki=self.pid_theta_ki, kd=self.pid_theta_kd,
+            max_i=self.pid_theta_max_i, max_output=self.pid_theta_max_out, deriv_tau=0.075, d_clip=0.8
+        )
+        self.pid_z = PIDController(
+            kp=self.pid_z_kp, ki=self.pid_z_ki, kd=self.pid_z_kd,
+            max_i=self.pid_z_max_i, max_output=self.pid_z_max_out, deriv_tau=0.075, d_clip=0.8
+        )
+        self.pid_yaw = PIDController(
+            kp=self.pid_yaw_kp, ki=self.pid_yaw_ki, kd=self.pid_yaw_kd,
+            max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
+        )
+        self.pid_v_theta = PIDController(
+            kp=self.pid_v_theta_kp, ki=self.pid_v_theta_ki, kd=self.pid_v_theta_kd,
+            max_i=self.pid_v_theta_max_i, max_output=self.pid_v_theta_max_out,
+            deriv_tau=self.pid_v_theta_deriv_tau, d_clip=self.pid_v_theta_d_clip
+        )
+        
+        self.pid_z_abs = PIDController(
+            kp=0.3, ki=0.1, kd=0.15,
+            max_i=0.5, max_output=3.0,
+            deriv_tau=0.1
+        )
+
     def _declare_params(self):
         # Topics / frame
         self.declare_parameter("topic_pose", "/mavros/local_position/pose")
@@ -287,13 +373,13 @@ class ApproachNode(Node):
         self.declare_parameter("pid_r_ki", 1.0)
         self.declare_parameter("pid_r_kd", 0.0)
         self.declare_parameter("pid_r_max_i", 1.0)
-        self.declare_parameter("pid_r_max_out", 2.0)
+        self.declare_parameter("pid_r_max_out", 7.0)
 
         # r_abs (absolute radius controller)
-        self.declare_parameter("pid_rabs_kp", 1.0)
-        self.declare_parameter("pid_rabs_ki", 0.0)
-        self.declare_parameter("pid_rabs_kd", 0.6)
-        self.declare_parameter("pid_rabs_max_i", 1.2)
+        self.declare_parameter("pid_rabs_kp", 0.3)
+        self.declare_parameter("pid_rabs_ki", 0.1)
+        self.declare_parameter("pid_rabs_kd", 0.15)
+        self.declare_parameter("pid_rabs_max_i", 0.5)
         self.declare_parameter("pid_rabs_max_out", 2.0)
 
         # theta (angle * radius controller)
@@ -459,7 +545,6 @@ class ApproachNode(Node):
             self.pid_z.prev_error = 0.0
             self.target_pose = None
             self.first = True
-            self.r_hold = None
 
             self.last_time = None
             self.r_error = None
@@ -474,8 +559,8 @@ class ApproachNode(Node):
     def info_callback(self):
         if not self.approach_active:
             return
-        if self.total_yaw_err is not None and self.delta_t is not None and self.r_hold is not None and self.delta_t is not None:
-            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, r_hold: {self.r_hold:.3f}, self.vel_r: {self.vel_r:.3f}")
+        if self.total_yaw_err is not None and self.delta_t is not None and self.delta_t is not None:
+            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, self.vel_r: {self.vel_r:.3f}")
             self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {self.total_yaw_err:.3f}")
             self.get_logger().info(f"Temps de traitement : {self.delta_t:.5f}")
 
@@ -486,6 +571,8 @@ class ApproachNode(Node):
         if not self.approach_active or self.target_pose is None or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None:
             return None
         
+        if self.dt is None:
+            self.dt = 0.04  # assume initial dt
 
         if self.estimated_target_pose is None:
             self.get_logger().info("No estimated target pose available")
@@ -499,10 +586,8 @@ class ApproachNode(Node):
         #Compute distance with target
         self.distance_from_target = math.hypot(delta_x,delta_y)
 
-        #Initialize r_hold if relative not active
         if self.first: 
             self.first = False
-            self.r_hold = self.distance_from_target
             self.filter_vr_callback()
 
         # --- Unit vectors in polar frame ---
@@ -515,16 +600,22 @@ class ApproachNode(Node):
         self.tangential_speed_measured = self.drone_speed.x * tangential_unit_vector[0] + self.drone_speed.y * tangential_unit_vector[1]
         self.vertical_speed_measured = self.drone_speed.z
 
+        angle = math.atan2(delta_y, delta_x)
+
+        z_pos_hold_speed_command = self.z_pos_hold.compute(self.drone_pose.z, self.drone_speed.z, self.target_pose.v_z, self.dt)
+        r_pos_hold_speed_command = self.r_pos_hold.compute(-self.distance_from_target, self.radial_speed_measured, self.target_pose.v_r, self.dt, deriv_pid_sign=-1)
+
+        theta_pos_hold_speed_command = self.theta_pos_hold.compute(-angle, self.tangential_speed_measured/self.distance_from_target, self.target_pose.v_theta/self.distance_from_target, self.dt, deriv_pid_sign=-1)
+
+
         if self.target_pose.relative:
             if self.target_pose.v_theta**2/max(self.distance_from_target, 1e-6) > self.centripetal_limit:
                 self.target_pose.v_theta = math.copysign(math.sqrt(self.centripetal_limit * max(self.distance_from_target, 1e-6)), self.target_pose.v_theta)
         
-            self.r_hold = self.minimal_margin if self.r_hold < self.minimal_margin else self.r_hold
-            self.r_error = self.distance_from_target - self.r_hold # Compute distance between goal radius
 
-            self.theta_speed_error = self.target_pose.v_theta - self.tangential_speed_measured
-            self.r_speed_error = self.filtered_v_r - self.radial_speed_measured
-            self.z_speed_error = self.target_pose.v_z - self.vertical_speed_measured
+            self.theta_speed_error = self.target_pose.v_theta + theta_pos_hold_speed_command - self.tangential_speed_measured
+            self.r_speed_error = self.filtered_v_r + r_pos_hold_speed_command - self.radial_speed_measured
+            self.z_speed_error = self.target_pose.v_z + z_pos_hold_speed_command - self.vertical_speed_measured
 
         else:
             self.r_error = self.distance_from_target - self.target_pose.r #r+ is radial in
@@ -533,7 +624,6 @@ class ApproachNode(Node):
             self.z_error = delta_z + float(self.target_pose.z)
 
             self.first = False #Reset the first flag to indicate no relative was going on
-            self.r_hold = self.distance_from_target
 
 
         # hdg_deg: 0 = North, +CW (aircraft heading)
@@ -683,6 +773,53 @@ class ApproachNode(Node):
         if not self.approach_active:
             return
         try:
+            # safe accessors
+            drone_z = getattr(self.drone_pose, "z", float("nan")) if getattr(self, "drone_pose", None) else float("nan")
+            target_z = getattr(self.target_pose, "z", float("nan")) if getattr(self, "target_pose", None) else float("nan")
+
+            # radial pos-hold (soft_pos_hold) info
+            r_lock_pos = getattr(self, "r_pos_hold", None)
+            if r_lock_pos is not None:
+                r_lock_position = -getattr(self.r_pos_hold, "lock_position", float("nan"))
+                r_lock_active = int(bool(getattr(self.r_pos_hold, "lock_activation", False)))
+                r_pid = getattr(self.r_pos_hold, "pid", None)
+                r_pid_P = getattr(r_pid, "last_p", float("nan")) if r_pid is not None else float("nan")
+                r_pid_I = getattr(r_pid, "last_i", float("nan")) if r_pid is not None else float("nan")
+                r_pid_D = getattr(r_pid, "last_d", float("nan")) if r_pid is not None else float("nan")
+            else:
+                r_lock_position = float("nan"); r_lock_active = 0
+                r_pid_P = r_pid_I = r_pid_D = float("nan")
+
+            # vertical pos-hold (soft_pos_hold) info
+            z_lock_pos = getattr(self, "z_pos_hold", None)
+            if z_lock_pos is not None:
+                z_lock_position = getattr(self.z_pos_hold, "lock_position", float("nan"))
+                z_lock_active = int(bool(getattr(self.z_pos_hold, "lock_activation", False)))
+                z_pid = getattr(self.z_pos_hold, "pid", None)
+                z_pid_P = getattr(z_pid, "last_p", float("nan")) if z_pid is not None else float("nan")
+                z_pid_I = getattr(z_pid, "last_i", float("nan")) if z_pid is not None else float("nan")
+                z_pid_D = getattr(z_pid, "last_d", float("nan")) if z_pid is not None else float("nan")
+            else:
+                z_lock_position = float("nan"); z_lock_active = 0
+                z_pid_P = z_pid_I = z_pid_D = float("nan")
+
+            # theta pos-hold info (actual angle, target, locked latched value and PID terms)
+            theta_lock_pos = getattr(self, "theta_pos_hold", None)
+            if theta_lock_pos is not None:
+                # theta_pos_hold stored lock as -angle in compute_estimated_state calls, invert to get actual angle
+                theta_lock_position = -getattr(self.theta_pos_hold, "lock_position", float("nan"))
+                theta_lock_active = int(bool(getattr(self.theta_pos_hold, "lock_activation", False)))
+                theta_pid = getattr(self.theta_pos_hold, "pid", None)
+                theta_pid_P = getattr(theta_pid, "last_p", float("nan")) if theta_pid is not None else float("nan")
+                theta_pid_I = getattr(theta_pid, "last_i", float("nan")) if theta_pid is not None else float("nan")
+                theta_pid_D = getattr(theta_pid, "last_d", float("nan")) if theta_pid is not None else float("nan")
+            else:
+                theta_lock_position = float("nan"); theta_lock_active = 0
+                theta_pid_P = theta_pid_I = theta_pid_D = float("nan")
+
+            theta_actual = getattr(self, "angle_towards_target_rad", float("nan"))
+            theta_target = getattr(self.target_pose, "theta", float("nan")) if getattr(self, "target_pose", None) else float("nan")
+
             self.csv.log(
                 radius=getattr(self, "distance_from_target", float("nan")),
                 # radial
@@ -721,6 +858,21 @@ class ApproachNode(Node):
                 error_yaw=getattr(self, "error_yaw", float("nan")),
                 total_yaw_err=getattr(self, "total_yaw_err", float("nan")),
                 yaw_rate=getattr(self, "yaw_rate", float("nan")),
+                # --- new soft_pos_hold & position fields ---
+                drone_z=drone_z,
+                target_z=target_z,
+                r_lock_position=r_lock_position,
+                r_lock_active=r_lock_active,
+                r_pid_P=r_pid_P, r_pid_I=r_pid_I, r_pid_D=r_pid_D,
+                z_lock_position=z_lock_position,
+                z_lock_active=z_lock_active,
+                z_pid_P=z_pid_P, z_pid_I=z_pid_I, z_pid_D=z_pid_D,
+                # theta hold fields
+                theta_actual=theta_actual,
+                theta_target=theta_target,
+                theta_lock_position=theta_lock_position,
+                theta_lock_active=theta_lock_active,
+                theta_pid_P=theta_pid_P, theta_pid_I=theta_pid_I, theta_pid_D=theta_pid_D,
                 dt=self.dt
             )
         except Exception as e:

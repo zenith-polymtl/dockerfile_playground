@@ -8,6 +8,9 @@ Reworked plots:
   [Col 1] Vertical speed vs setpoint | [Col 2] Vertical PID effort (+acc_cmd_z)
 - Figure 3 (saved): Yaw (1x2)
   [Col 1] Yaw vs target (+error) | [Col 2] Yaw rate
+- Figure 4 (saved): Soft pos-hold latched positions & PID (2x2)
+  [Row 1] Radius vs latched position | Radial PID components (P/I/D)
+  [Row 2] Drone z vs target z | Vertical PID components (P/I/D)
 
 Usage:
   python graph_analysis.py input.csv [output_prefix]
@@ -30,6 +33,13 @@ KEEP = [
     "pid_vtheta_P","pid_vtheta_I","pid_vtheta_D",
     "pid_z_P","pid_z_I","pid_z_D",
     "yaw_enu","yaw_target","error_yaw","total_yaw_err","yaw_rate",
+    # soft_pos_hold / latched positions & PID components
+    "drone_z","target_z",
+    "r_lock_position","r_lock_active","r_pid_P","r_pid_I","r_pid_D",
+    "z_lock_position","z_lock_active","z_pid_P","z_pid_I","z_pid_D",
+    # theta hold
+    "theta_actual","theta_target","theta_lock_position","theta_lock_active",
+    "theta_pid_P","theta_pid_I","theta_pid_D",
     "dt",
 ]
 
@@ -199,12 +209,90 @@ def main():
     fig3.tight_layout(rect=[0, 0.02, 1, 0.95])
     fig3.savefig(f"{out_prefix}_yaw.png", dpi=150)
 
+    # ---------- Figure 4: Soft pos-hold latched positions & PID (2x2) ----------
+    fig4, axs4 = plt.subplots(2, 2, figsize=(14, 8))
+    fig4.suptitle("Soft pos-hold: Latched Position vs Actual and PID components")
+
+    # Radial: radius vs r_lock_position
+    ax = axs4[0, 0]
+    plot_if(ax, t, df, "radius", "-", "radius")
+    plot_if(ax, t, df, "r_lock_position", "-", "r_lock_position")
+    plot_if(ax, t, df, "r_lock_active", ":", "r_lock_active")
+    ax.set_ylabel("radial [m]")
+    ax.set_xlabel(tlabel)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper right")
+
+    # Radial PID components (latched controller)
+    ax = axs4[0, 1]
+    plot_if(ax, t, df, "r_pid_P", "-", "r_pid_P")
+    plot_if(ax, t, df, "r_pid_I", "--", "r_pid_I")
+    plot_if(ax, t, df, "r_pid_D", ":", "r_pid_D")
+    ax.set_ylabel("PID (r)")
+    ax.set_xlabel(tlabel)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper right")
+
+    # Vertical: drone z, target z and z_lock_position
+    ax = axs4[1, 0]
+    plot_if(ax, t, df, "drone_z", "-", "drone_z")
+    plot_if(ax, t, df, "target_z", "--", "target_z")
+    plot_if(ax, t, df, "z_lock_position", "-", "z_lock_position")
+    plot_if(ax, t, df, "z_lock_active", ":", "z_lock_active")
+    ax.set_ylabel("z [m]")
+    ax.set_xlabel(tlabel)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper right")
+
+    # Vertical PID components (latched controller)
+    ax = axs4[1, 1]
+    plot_if(ax, t, df, "z_pid_P", "-", "z_pid_P")
+    plot_if(ax, t, df, "z_pid_I", "--", "z_pid_I")
+    plot_if(ax, t, df, "z_pid_D", ":", "z_pid_D")
+    ax.set_ylabel("PID (z)")
+    ax.set_xlabel(tlabel)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper right")
+
+    fig4.tight_layout(rect=[0, 0.02, 1, 0.95])
+    fig4.savefig(f"{out_prefix}_poshold.png", dpi=150)
+
+    # ---------- Figure 5: Theta pos-hold (1x2) ----------
+    fig5, axs5 = plt.subplots(1, 2, figsize=(14, 4.8))
+    fig5.suptitle("Theta pos-hold: Actual vs Latched/Target and PID components")
+
+    # Theta actual vs latched/target
+    ax = axs5[0]
+    plot_if(ax, t, df, "theta_actual", "-", "theta_actual")
+    plot_if(ax, t, df, "theta_target", "--", "theta_target")
+    plot_if(ax, t, df, "theta_lock_position", "-", "theta_lock_position")
+    plot_if(ax, t, df, "theta_lock_active", ":", "theta_lock_active")
+    ax.set_ylabel("theta [rad]")
+    ax.set_xlabel(tlabel)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper right")
+
+    # Theta PID components
+    ax = axs5[1]
+    plot_if(ax, t, df, "theta_pid_P", "-", "theta_pid_P")
+    plot_if(ax, t, df, "theta_pid_I", "--", "theta_pid_I")
+    plot_if(ax, t, df, "theta_pid_D", ":", "theta_pid_D")
+    ax.set_ylabel("PID (theta)")
+    ax.set_xlabel(tlabel)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper right")
+
+    fig5.tight_layout(rect=[0, 0.02, 1, 0.95])
+    fig5.savefig(f"{out_prefix}_theta.png", dpi=150)
+
     # Close figures to avoid GUI usage
-    plt.close(fig1); plt.close(fig2); plt.close(fig3)
+    plt.close(fig1); plt.close(fig2); plt.close(fig3); plt.close(fig4); plt.close(fig5)
     print("[ok] saved:",
           f"{out_prefix}_radial_tangential.png,",
           f"{out_prefix}_vertical.png,",
-          f"{out_prefix}_yaw.png")
+          f"{out_prefix}_yaw.png,",
+          f"{out_prefix}_poshold.png,",
+          f"{out_prefix}_theta.png")
 
 if __name__ == "__main__":
     main()
