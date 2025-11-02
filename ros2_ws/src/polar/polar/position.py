@@ -82,7 +82,11 @@ class PIDController():
         
         return max(-self.max_output, min(u, self.max_output))
 
-
+    def reset(self):
+        self.prev_error = 0.0
+        self.prev_error2 = 0.0
+        self.integral = 0.0
+        self._d_state = 0.0
 
 def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
 
@@ -271,21 +275,39 @@ class ApproachNode(Node):
         )
 
         # --- Periodic jobs ---
+        self.launch_timers()
 
+
+    def launch_timers(self):
+        if not self.approach_active or self.target_pose is None or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None or self.filtered_v_r is None:
+            return None
+        
         self.control_rate = 25.0  # main control loop
         self.control_timer = self.create_timer(1.0 / self.control_rate, self.compute_estimated_state)
-        hz = 25.0  # control smoothing timer
-        self.smooth_timer = self.create_timer(1.0 / hz, self.filter_vr_callback)
+        self.smooth_timer = self.create_timer(1.0 / self.control_rate, self.filter_vr_callback)
 
         if self.talk:
             hz = 4
             self.info_timer = self.create_timer(1/hz, self.info_callback)
-            self.get_logger().info("Polar positioning node started")
+
 
         if self.log:
             hz = 10
             self.log_timer = self.create_timer(1/hz, self.log_callback)
-            self.get_logger().info("Polar positioning node started")
+            self.get_logger().info("Polar positioning node started")    
+
+        self.get_logger().info("Polar positioning node started")
+
+    def destroy_timers(self):
+        try:
+            self.control_timer.destroy()
+            self.smooth_timer.destroy()
+            if self.talk:
+                self.info_timer.destroy()
+            if self.log:
+                self.log_timer.destroy()
+        except Exception:
+            self.get_logger().error("Error destroying timers")
 
     def _intialise_controllers(self):
         # --- Controllers (gains/limits from params) ---
@@ -547,7 +569,6 @@ class ApproachNode(Node):
         self.talk            = bool(gp("talk").value)
         self.log             = bool(gp("log").value)
 
-
     def setup_message_intervals(self):
         if True:
             """Set up message intervals after node initialization"""  
@@ -591,8 +612,6 @@ class ApproachNode(Node):
             self.target_pose.v_z = 0.0
             self.get_logger().info("Controller Deactivated, stopping targets follow")
 
-    
-
     def activation_callback(self, msg):
         if msg.data == "start":
             self.get_logger().info("Approach Activated")
@@ -602,12 +621,14 @@ class ApproachNode(Node):
             self.publish_zero()
             self.approach_active = False
             # Reset controllers and state
-            self.pid_r.integral = 0.0
-            self.pid_r.prev_error = 0.0
-            self.pid_theta.integral = 0.0
-            self.pid_theta.prev_error = 0.0
-            self.pid_z.integral = 0.0
-            self.pid_z.prev_error = 0.0
+            self.pid_r.reset()
+            self.pid_z.reset()
+            self.pid_theta.reset()
+            self.pid_yaw.reset()
+            self.pid_v_theta.reset()
+            self.pid_r_abs.reset()
+            self.pid_z_hold.reset()
+            self.pid_r_hold.reset()
             self.target_pose = None
             self.first = True
 
@@ -620,21 +641,16 @@ class ApproachNode(Node):
             self.drone_speed = None
             self.filtered_v_r = None
             self.yaw_offset = 0.0
+            self.destroy_timers()
             
     def info_callback(self):
-        if not self.approach_active:
-            return
+
         if self.total_yaw_err is not None and self.delta_t is not None and self.delta_t is not None:
             self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, self.vel_r: {self.vel_r:.3f}")
             self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {self.total_yaw_err:.3f}")
             self.get_logger().info(f"Temps de traitement : {self.delta_t:.5f}")
 
-    def yaw_callback(self, msg):
-        self.hdg_deg = msg.data
-
     def compute_estimated_state(self):
-        if not self.approach_active or self.target_pose is None or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None or self.filtered_v_r is None:
-            return None
         
         if self.dt is None:
             self.dt = 0.04  # assume initial dt
@@ -974,6 +990,8 @@ class ApproachNode(Node):
     def drone_pose_callback(self, msg):
         self.drone_pose = msg.pose.position
 
+    def yaw_callback(self, msg):
+        self.hdg_deg = msg.data
 
     def drone_speed_callback(self, msg):
         self.drone_speed = msg.twist.linear
@@ -981,7 +999,6 @@ class ApproachNode(Node):
     def goal_pose_callback(self, msg):
         self.target_pose = msg
         self.target_pose.theta = (-msg.theta+90)/180*np.pi
-
 
     def estimation_callback(self, msg):
         self.estimated_target_pose = msg.pose.position
