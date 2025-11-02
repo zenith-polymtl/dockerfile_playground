@@ -568,7 +568,7 @@ class ApproachNode(Node):
         self.hdg_deg = msg.data
 
     def compute_estimated_state(self):
-        if not self.approach_active or self.target_pose is None or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None:
+        if not self.approach_active or self.target_pose is None or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None or self.filtered_v_r is None:
             return None
         
         if self.dt is None:
@@ -587,15 +587,26 @@ class ApproachNode(Node):
         self.distance_from_target = math.hypot(delta_x,delta_y)
         
         # --- Filter radial speed command ---
-        self.initial_radius = 5.0  # meters
-        if self.distance_from_target <= self.initial_radius:     
-            v_r = min(self.filtered_v_r, 0)
-        elif self.distance_from_target < self.initial_radius and self.filtered_v_r < 0:
-            
-            v_r = self.filtered_v_r*((self.distance_from_target - self.minimal_margin)/(self.initial_radius - self.minimal_margin))**2
-            self.get_logger().info(f"Scaling v_r to {v_r:.3f} m/s")
+        self.initial_radius = 5.0  # start of soft zone
+        r      = self.distance_from_target
+        r_safe = self.minimal_margin          # hard keep-out
+        r0     = self.initial_radius          # start of soft zone
+        v_in   = self.filtered_v_r
+
+        if r <= r_safe:
+            # Inside the keep-out: forbid inward (negative) velocity; allow outward
+            v_r = min(v_in, 0.0) - 0.05  # small outward bias to escape
+
+        elif (r < r0) and (v_in > 0.0):
+            # In the soft zone: scale inward velocity smoothly toward 0
+            denom = max(r0 - r_safe, 1e-6)
+            alpha = (r - r_safe) / denom      # in (0,1)
+            alpha = max(0.0, min(1.0, alpha)) # clip for safety
+            v_r = (alpha * alpha) * v_in      # quadratic taper
+
         else:
-            v_r = self.filtered_v_r
+            # Outside the soft zone or moving outward
+            v_r = v_in
             
 
         if self.first: 
