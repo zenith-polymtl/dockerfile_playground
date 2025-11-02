@@ -585,6 +585,18 @@ class ApproachNode(Node):
 
         #Compute distance with target
         self.distance_from_target = math.hypot(delta_x,delta_y)
+        
+        # --- Filter radial speed command ---
+        self.initial_radius = 5.0  # meters
+        if self.distance_from_target <= self.initial_radius:     
+            v_r = min(self.filtered_v_r, 0)
+        elif self.distance_from_target < self.initial_radius and self.filtered_v_r < 0:
+            
+            v_r = self.filtered_v_r*((self.distance_from_target - self.minimal_margin)/(self.initial_radius - self.minimal_margin))**2
+            self.get_logger().info(f"Scaling v_r to {v_r:.3f} m/s")
+        else:
+            v_r = self.filtered_v_r
+            
 
         if self.first: 
             self.first = False
@@ -614,7 +626,7 @@ class ApproachNode(Node):
         
 
             self.theta_speed_error = self.target_pose.v_theta + theta_pos_hold_speed_command - self.tangential_speed_measured
-            self.r_speed_error = self.filtered_v_r + r_pos_hold_speed_command - self.radial_speed_measured
+            self.r_speed_error = v_r + r_pos_hold_speed_command - self.radial_speed_measured
             self.z_speed_error = self.target_pose.v_z + z_pos_hold_speed_command - self.vertical_speed_measured
 
         else:
