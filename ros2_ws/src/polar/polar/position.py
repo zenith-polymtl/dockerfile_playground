@@ -28,11 +28,6 @@ class SimpleCSV:
         t = vals.get("t", time.monotonic() - self._t0)
         row = [t] + [vals.get(k, "") for k in self.fields[1:]]
         self._w.writerow(row)
-        try:
-            # ensure data is flushed to disk so traces are available promptly
-            self._fh.flush()
-        except Exception:
-            pass
 
     def close(self):
         try:
@@ -299,19 +294,19 @@ class ApproachNode(Node):
             max_i=self.pid_r_max_i, deriv_tau=0.0,  max_output=self.pid_r_max_out
         )
         self.pid_z_hold= PIDController(
-            kp=0.3, ki=0.1, kd=0.15,
-            max_i=0.5, max_output=3.0,
-            deriv_tau=0.1
+            kp=self.pid_z_hold_kp, ki=self.pid_z_hold_ki, kd=self.pid_z_hold_kd,
+            max_i=self.pid_z_hold_max_i, max_output=self.pid_z_hold_max_out,
+            deriv_tau=self.pid_z_hold_deriv_tau, d_clip=getattr(self, "pid_z_hold_d_clip", None)
         )
         self.pid_theta_hold= PIDController(
-            kp=0.6, ki=0.2, kd=0.3,
-            max_i=0.5, max_output=3.0,
-            deriv_tau=0.1
+            kp=self.pid_theta_hold_kp, ki=self.pid_theta_hold_ki, kd=self.pid_theta_hold_kd,
+            max_i=self.pid_theta_hold_max_i, max_output=self.pid_theta_hold_max_out,
+            deriv_tau=self.pid_theta_hold_deriv_tau, d_clip=getattr(self, "pid_theta_hold_d_clip", None)
         )
         self.pid_r_hold = PIDController(
-            kp=0.3, ki=0.1, kd=0.15,
-            max_i=0.5, max_output=3.0,
-            deriv_tau=0.1
+            kp=self.pid_r_hold_kp, ki=self.pid_r_hold_ki, kd=self.pid_r_hold_kd,
+            max_i=self.pid_r_hold_max_i, max_output=self.pid_r_hold_max_out,
+            deriv_tau=self.pid_r_hold_deriv_tau, d_clip=getattr(self, "pid_r_hold_d_clip", None)
         )
         self.pid_r_abs = PIDController(
             kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
@@ -416,6 +411,43 @@ class ApproachNode(Node):
         self.declare_parameter("talk", True)
         self.declare_parameter("log", True)
 
+        # --- Newly added / unified hold and z_abs PID params ---
+        # z_hold
+        self.declare_parameter("pid_z_hold_kp", 0.3)
+        self.declare_parameter("pid_z_hold_ki", 0.1)
+        self.declare_parameter("pid_z_hold_kd", 0.15)
+        self.declare_parameter("pid_z_hold_max_i", 0.5)
+        self.declare_parameter("pid_z_hold_max_out", 3.0)
+        self.declare_parameter("pid_z_hold_deriv_tau", 0.1)
+        self.declare_parameter("pid_z_hold_d_clip", 0.3)
+
+        # theta_hold
+        self.declare_parameter("pid_theta_hold_kp", 0.6)
+        self.declare_parameter("pid_theta_hold_ki", 0.2)
+        self.declare_parameter("pid_theta_hold_kd", 0.3)
+        self.declare_parameter("pid_theta_hold_max_i", 0.5)
+        self.declare_parameter("pid_theta_hold_max_out", 3.0)
+        self.declare_parameter("pid_theta_hold_deriv_tau", 0.1)
+        self.declare_parameter("pid_theta_hold_d_clip", 0.3)
+
+        # r_hold
+        self.declare_parameter("pid_r_hold_kp", 0.3)
+        self.declare_parameter("pid_r_hold_ki", 0.1)
+        self.declare_parameter("pid_r_hold_kd", 0.15)
+        self.declare_parameter("pid_r_hold_max_i", 0.5)
+        self.declare_parameter("pid_r_hold_max_out", 3.0)
+        self.declare_parameter("pid_r_hold_deriv_tau", 0.1)
+        self.declare_parameter("pid_r_hold_d_clip", 0.3)
+
+        # z_abs (previously hardcoded)
+        self.declare_parameter("pid_z_abs_kp", 0.3)
+        self.declare_parameter("pid_z_abs_ki", 0.1)
+        self.declare_parameter("pid_z_abs_kd", 0.15)
+        self.declare_parameter("pid_z_abs_max_i", 0.5)
+        self.declare_parameter("pid_z_abs_max_out", 3.0)
+        self.declare_parameter("pid_z_abs_deriv_tau", 0.1)
+        self.declare_parameter("pid_z_abs_d_clip", 0.3)
+
         # ---------- variable attribution (cache values) ----------
         gp = self.get_parameter  # short alias
 
@@ -478,6 +510,39 @@ class ApproachNode(Node):
         self.pid_v_theta_max_out = float(gp("pid_v_theta_max_out").value)
         self.pid_v_theta_deriv_tau = float(gp("pid_v_theta_deriv_tau").value)
         self.pid_v_theta_d_clip = float(gp("pid_v_theta_d_clip").value)
+
+        # --- newly added cached PID params (hold/z_abs) ---
+        self.pid_z_hold_kp = float(gp("pid_z_hold_kp").value)
+        self.pid_z_hold_ki = float(gp("pid_z_hold_ki").value)
+        self.pid_z_hold_kd = float(gp("pid_z_hold_kd").value)
+        self.pid_z_hold_max_i = float(gp("pid_z_hold_max_i").value)
+        self.pid_z_hold_max_out = float(gp("pid_z_hold_max_out").value)
+        self.pid_z_hold_deriv_tau = float(gp("pid_z_hold_deriv_tau").value)
+        self.pid_z_hold_d_clip = float(gp("pid_z_hold_d_clip").value)
+
+        self.pid_theta_hold_kp = float(gp("pid_theta_hold_kp").value)
+        self.pid_theta_hold_ki = float(gp("pid_theta_hold_ki").value)
+        self.pid_theta_hold_kd = float(gp("pid_theta_hold_kd").value)
+        self.pid_theta_hold_max_i = float(gp("pid_theta_hold_max_i").value)
+        self.pid_theta_hold_max_out = float(gp("pid_theta_hold_max_out").value)
+        self.pid_theta_hold_deriv_tau = float(gp("pid_theta_hold_deriv_tau").value)
+        self.pid_theta_hold_d_clip = float(gp("pid_theta_hold_d_clip").value)
+
+        self.pid_r_hold_kp = float(gp("pid_r_hold_kp").value)
+        self.pid_r_hold_ki = float(gp("pid_r_hold_ki").value)
+        self.pid_r_hold_kd = float(gp("pid_r_hold_kd").value)
+        self.pid_r_hold_max_i = float(gp("pid_r_hold_max_i").value)
+        self.pid_r_hold_max_out = float(gp("pid_r_hold_max_out").value)
+        self.pid_r_hold_deriv_tau = float(gp("pid_r_hold_deriv_tau").value)
+        self.pid_r_hold_d_clip = float(gp("pid_r_hold_d_clip").value)
+
+        self.pid_z_abs_kp = float(gp("pid_z_abs_kp").value)
+        self.pid_z_abs_ki = float(gp("pid_z_abs_ki").value)
+        self.pid_z_abs_kd = float(gp("pid_z_abs_kd").value)
+        self.pid_z_abs_max_i = float(gp("pid_z_abs_max_i").value)
+        self.pid_z_abs_max_out = float(gp("pid_z_abs_max_out").value)
+        self.pid_z_abs_deriv_tau = float(gp("pid_z_abs_deriv_tau").value)
+        self.pid_z_abs_d_clip = float(gp("pid_z_abs_d_clip").value)
 
         self.talk            = bool(gp("talk").value)
         self.log             = bool(gp("log").value)
@@ -587,23 +652,27 @@ class ApproachNode(Node):
         self.distance_from_target = math.hypot(delta_x,delta_y)
         
         # --- Filter radial speed command ---
-        self.initial_radius = 5.0  # start of soft zone
+        self.initial_no_go_radius = 5.0  # start of soft zone
         r      = self.distance_from_target
         r_safe = self.minimal_margin          # hard keep-out
-        r0     = self.initial_radius          # start of soft zone
+        r0     = self.initial_no_go_radius          # start of soft zone
         v_in   = self.filtered_v_r
 
         if r <= r_safe:
             # Inside the keep-out: forbid inward (negative) velocity; allow outward
             v_r = min(v_in, 0.0) - 0.05  # small outward bias to escape
 
-        elif (r < r0) and (v_in > 0.0):
-            # In the soft zone: scale inward velocity smoothly toward 0
-            denom = max(r0 - r_safe, 1e-6)
-            alpha = (r - r_safe) / denom      # in (0,1)
-            alpha = max(0.0, min(1.0, alpha)) # clip for safety
-            v_r = (alpha * alpha) * v_in      # quadratic taper
-
+        elif (r < r0):
+            if (v_in > 0.0):
+                # In the soft zone: scale inward velocity smoothly toward 0
+                denom = max(r0 - r_safe, 1e-6)
+                alpha = (r - r_safe) / denom      # in (0,1)
+                alpha = max(0.0, min(1.0, alpha)) # clip for safety
+                v_r = (alpha * alpha) * v_in      # quadratic taper
+            else:
+                # In the soft zone but moving outward
+                v_r = v_in
+                v_r += self.dt*0.5*v_r
         else:
             # Outside the soft zone or moving outward
             v_r = v_in

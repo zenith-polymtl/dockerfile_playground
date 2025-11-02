@@ -25,7 +25,7 @@ class TargetPoseKeyboard(Node):
         # state
         self.r = 0.0
         self.v_theta = 0.0
-        self.step = 0.1  # increment per key press
+        self.step = 0.5  # increment per key press
         self.v_z = 0.0 
         self.yaw_rate = 0.0
         self.yaw_step = 0.02
@@ -58,6 +58,8 @@ class TargetPoseKeyboard(Node):
         elif k == ' ':
             self.r = 0.0
             self.v_theta = 0.0
+            self.v_z = 0.0
+            self.yaw_rate = 0.0
         elif k == 'w':
             self.r -= self.step
         elif k == 's':
