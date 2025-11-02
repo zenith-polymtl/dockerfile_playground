@@ -35,8 +35,6 @@ class SimpleCSV:
         except Exception:
             pass
 
-
-
 # --- PID with filtered derivative & optional d_meas ---
 class PIDController():
     def __init__(self, kp, ki, kd, max_output=3.0, max_i=1.0,
@@ -89,7 +87,6 @@ class PIDController():
         self._d_state = 0.0
 
 def wrap_pi(a): return (a + np.pi) % (2*np.pi) - np.pi
-
 
 class soft_pos_hold:
     def __init__(self, pid,
@@ -184,8 +181,8 @@ class ApproachNode(Node):
         self.pose_goal_sub = self.create_subscription(
             TargetPosePolar, self.topic_goal_polar, self.goal_pose_callback, qos_profile
         )
-        self.estimated_target_sub = self.create_subscription(
-            PoseStamped, self.topic_estimated_target, self.estimation_callback, qos_profile
+        self.estimated_center_sub = self.create_subscription(
+            PoseStamped, self.topic_estimated_center, self.estimated_center_callback, qos_profile
         )
         self.activation_sub = self.create_subscription(
             String, self.topic_activation, self.activation_callback, qos_profile
@@ -208,15 +205,15 @@ class ApproachNode(Node):
 
 
         # --- State ---
-        self.estimated_target_pose = None # ananas !!!!
+        self.control_rate = 25.0  # main control loop
+        self.estimated_center = None
         self.drone_pose = None
         self.drone_speed = None
-        self.target_pose = None # ananas !!!!
+        self.target_pose = None
         self.last_time = None
         self.r_error = None
         self.z_error = None
         self.theta_error = None
-        self.first = True
         self.r_ref = None
         self.yaw = None
         self.filtered_v_r = None
@@ -225,7 +222,11 @@ class ApproachNode(Node):
         self.total_yaw_err = None
         self.delta_t = None
         self.hdg_deg = None
-        self.dt = None
+        self.control_timer = None
+        self.smooth_timer  = None
+        self.info_timer    = None
+        self.log_timer     = None
+        self.dt = 1/self.control_rate
         self.yaw_offset = 0.0
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
         self.a_theta_cmd = 0.0
@@ -262,7 +263,7 @@ class ApproachNode(Node):
                 "pid_z_P", "pid_z_I", "pid_z_D",
                 # yaw / heading
                 "yaw_enu", "yaw_target", "error_yaw", "total_yaw_err", "yaw_rate",
-                # --- new fields for soft_pos_hold & positions ---
+                # position holds parameters
                 "drone_z", "target_z",
                 "r_lock_position", "r_lock_active", "r_pid_P", "r_pid_I", "r_pid_D",
                 "z_lock_position", "z_lock_active", "z_pid_P", "z_pid_I", "z_pid_D",
@@ -274,29 +275,37 @@ class ApproachNode(Node):
             ]
         )
 
-        # --- Periodic jobs ---
-        self.launch_timers()
-
+        start_timers_freq = 2.0  # Hz
+        self.start_timers_timer = self.create_timer(1.0 / start_timers_freq, self.launch_timers)
 
     def launch_timers(self):
-        if not self.approach_active or self.target_pose is None or self.drone_speed is None or self.drone_pose is None or self.hdg_deg is None or self.filtered_v_r is None:
-            return None
-        
-        self.control_rate = 25.0  # main control loop
-        self.control_timer = self.create_timer(1.0 / self.control_rate, self.compute_estimated_state)
-        self.smooth_timer = self.create_timer(1.0 / self.control_rate, self.filter_vr_callback)
+        # Start only when we WANT to run and have the MINIMUM inputs
+        if not self.approach_active:
+            return
 
-        if self.talk:
-            hz = 4
-            self.info_timer = self.create_timer(1/hz, self.info_callback)
+        ready = (
+            self.target_pose is not None and
+            self.drone_speed is not None and
+            self.drone_pose  is not None and
+            self.hdg_deg     is not None and
+            self.estimated_center is not None
+        )
+        if not ready:
+            return
 
+        # Create each timer once
+        if self.control_timer is None:
+            self.control_timer = self.create_timer(1.0 / self.control_rate, self.compute_estimated_state)
+        if self.smooth_timer is None:
+            self.smooth_timer = self.create_timer(1.0 / self.control_rate, self.filter_vr_callback)
 
-        if self.log:
-            hz = 10
-            self.log_timer = self.create_timer(1/hz, self.log_callback)
-            self.get_logger().info("Polar positioning node started")    
+        if self.talk and self.info_timer is None:
+            self.info_timer = self.create_timer(1/4.0, self.info_callback)
 
-        self.get_logger().info("Polar positioning node started")
+        if self.log and self.log_timer is None:
+            self.log_timer = self.create_timer(1/10.0, self.log_callback)
+            self.get_logger().info("Polar positioning node started")
+
 
     def destroy_timers(self):
         try:
@@ -306,8 +315,15 @@ class ApproachNode(Node):
                 self.info_timer.destroy()
             if self.log:
                 self.log_timer.destroy()
+
+            self.control_timer = None
+            self.smooth_timer  = None
+            self.info_timer    = None
+            self.log_timer     = None
         except Exception:
             self.get_logger().error("Error destroying timers")
+
+        
 
     def _intialise_controllers(self):
         # --- Controllers (gains/limits from params) ---
@@ -334,9 +350,9 @@ class ApproachNode(Node):
             kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
             max_i=self.pid_rabs_max_i, max_output=self.pid_rabs_max_out
         )
-        self.pid_theta = PIDController(
-            kp=self.pid_theta_kp, ki=self.pid_theta_ki, kd=self.pid_theta_kd,
-            max_i=self.pid_theta_max_i, max_output=self.pid_theta_max_out, deriv_tau=0.075, d_clip=0.8
+        self.pid_theta_abs = PIDController(
+            kp=self.pid_theta_abs_kp, ki=self.pid_theta_abs_ki, kd=self.pid_theta_abs_kd,
+            max_i=self.pid_theta_abs_max_i, max_output=self.pid_theta_abs_max_out, deriv_tau=0.075, d_clip=0.8
         )
         self.pid_z = PIDController(
             kp=self.pid_z_kp, ki=self.pid_z_ki, kd=self.pid_z_kd,
@@ -353,9 +369,9 @@ class ApproachNode(Node):
         )
         
         self.pid_z_abs = PIDController(
-            kp=0.3, ki=0.1, kd=0.15,
-            max_i=0.5, max_output=3.0,
-            deriv_tau=0.1
+            kp=self.pid_z_abs_kp, ki=self.pid_z_abs_ki, kd=self.pid_z_abs_kd,
+            max_i=self.pid_z_abs_max_i, max_output=self.pid_z_abs_max_out,
+            deriv_tau=self.pid_z_abs_deriv_tau, d_clip=self.pid_z_abs_d_clip
         )
 
     def _declare_params(self):
@@ -363,18 +379,19 @@ class ApproachNode(Node):
         self.declare_parameter("topic_pose", "/mavros/local_position/pose")
         self.declare_parameter("topic_vel", "/mavros/local_position/velocity_local")
         self.declare_parameter("topic_goal_polar", "/goal_pose_polar")
-        self.declare_parameter("topic_estimated_target", "/estimated_target_location")
+        self.declare_parameter("topic_estimated_center", "/estimated_center_location")
         self.declare_parameter("topic_activation", "/approach_activation")
         self.declare_parameter("topic_ctrl_activation", "/controller_activation")  # ananas
         self.declare_parameter("topic_raw_setpoint", "/mavros/setpoint_raw/local")
         self.declare_parameter("frame_id", "map")
 
         # Rates / filters
-        self.declare_parameter("alpha", 0.25)          # smoothing for v_r
+        self.declare_parameter("alpha", 0.1)          # smoothing for v_r
 
         # Limits
-        self.declare_parameter("centripetal_limit", 2.0)  # [m/s^2]
+        self.declare_parameter("centripetal_limit", 1.5)  # [m/s^2]
         self.declare_parameter("minimal_margin", 2.0)
+        self.declare_parameter("soft_repulsion_initial_radius", 5.0)
 
         # CSV log
         self.declare_parameter("csv_path", "approach_log_polar.csv")
@@ -400,11 +417,11 @@ class ApproachNode(Node):
         self.declare_parameter("pid_rabs_max_out", 2.0)
 
         # theta (angle * radius controller)
-        self.declare_parameter("pid_theta_kp", 1.0)
-        self.declare_parameter("pid_theta_ki", 0.0)
-        self.declare_parameter("pid_theta_kd", 0.6)
-        self.declare_parameter("pid_theta_max_i", 1.0)
-        self.declare_parameter("pid_theta_max_out", 2.0)
+        self.declare_parameter("pid_theta_abs_kp", 1.0)
+        self.declare_parameter("pid_theta_abs_ki", 0.0)
+        self.declare_parameter("pid_theta_abs_kd", 0.6)
+        self.declare_parameter("pid_theta_abs_max_i", 1.0)
+        self.declare_parameter("pid_theta_abs_max_out", 2.0)
 
         # z
         self.declare_parameter("pid_z_kp", 0.6)
@@ -477,7 +494,7 @@ class ApproachNode(Node):
         self.topic_pose            = gp("topic_pose").value
         self.topic_vel             = gp("topic_vel").value
         self.topic_goal_polar      = gp("topic_goal_polar").value
-        self.topic_estimated_target= gp("topic_estimated_target").value
+        self.topic_estimated_center= gp("topic_estimated_center").value
         self.topic_activation      = gp("topic_activation").value
         self.topic_ctrl_activation = gp("topic_ctrl_activation").value
         self.topic_raw_setpoint    = gp("topic_raw_setpoint").value
@@ -487,6 +504,7 @@ class ApproachNode(Node):
         self.alpha             = float(gp("alpha").value)
         self.centripetal_limit = float(gp("centripetal_limit").value)
         self.minimal_margin = float(gp("minimal_margin").value)
+        self.soft_repulsion_initial_radius = float(gp("soft_repulsion_initial_radius").value)
 
         # CSV / comms
         self.csv_path         = gp("csv_path").value
@@ -506,11 +524,11 @@ class ApproachNode(Node):
         self.pid_rabs_max_i  = float(gp("pid_rabs_max_i").value)
         self.pid_rabs_max_out= float(gp("pid_rabs_max_out").value)
 
-        self.pid_theta_kp    = float(gp("pid_theta_kp").value)
-        self.pid_theta_ki    = float(gp("pid_theta_ki").value)
-        self.pid_theta_kd    = float(gp("pid_theta_kd").value)
-        self.pid_theta_max_i = float(gp("pid_theta_max_i").value)
-        self.pid_theta_max_out = float(gp("pid_theta_max_out").value)
+        self.pid_theta_abs_kp    = float(gp("pid_theta_abs_kp").value)
+        self.pid_theta_abs_ki    = float(gp("pid_theta_abs_ki").value)
+        self.pid_theta_abs_kd    = float(gp("pid_theta_abs_kd").value)
+        self.pid_theta_abs_max_i = float(gp("pid_theta_abs_max_i").value)
+        self.pid_theta_abs_max_out = float(gp("pid_theta_abs_max_out").value)
 
         self.pid_z_kp        = float(gp("pid_z_kp").value)
         self.pid_z_ki        = float(gp("pid_z_ki").value)
@@ -533,7 +551,6 @@ class ApproachNode(Node):
         self.pid_v_theta_deriv_tau = float(gp("pid_v_theta_deriv_tau").value)
         self.pid_v_theta_d_clip = float(gp("pid_v_theta_d_clip").value)
 
-        # --- newly added cached PID params (hold/z_abs) ---
         self.pid_z_hold_kp = float(gp("pid_z_hold_kp").value)
         self.pid_z_hold_ki = float(gp("pid_z_hold_ki").value)
         self.pid_z_hold_kd = float(gp("pid_z_hold_kd").value)
@@ -616,6 +633,8 @@ class ApproachNode(Node):
         if msg.data == "start":
             self.get_logger().info("Approach Activated")
             self.approach_active = True
+            self.target_pose = None  # reset target
+            self.launch_timers()
         elif msg.data == "stop":
             self.get_logger().info("Approach Deactivated")
             self.publish_zero()
@@ -623,14 +642,13 @@ class ApproachNode(Node):
             # Reset controllers and state
             self.pid_r.reset()
             self.pid_z.reset()
-            self.pid_theta.reset()
+            self.pid_theta_abs.reset()
             self.pid_yaw.reset()
             self.pid_v_theta.reset()
             self.pid_r_abs.reset()
             self.pid_z_hold.reset()
             self.pid_r_hold.reset()
             self.target_pose = None
-            self.first = True
 
             self.last_time = None
             self.r_error = None
@@ -644,31 +662,12 @@ class ApproachNode(Node):
             self.destroy_timers()
             
     def info_callback(self):
+        self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, self.vel_r: {self.vel_r:.3f}")
+        self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {self.total_yaw_err:.3f}")
+        self.get_logger().info(f"Temps de traitement : {self.delta_t:.5f}")
 
-        if self.total_yaw_err is not None and self.delta_t is not None and self.delta_t is not None:
-            self.get_logger().info(f" Distance : {self.distance_from_target:.3f}, self.vel_r: {self.vel_r:.3f}")
-            self.get_logger().info(f"yaw offset : {self.yaw_offset:.3f} , total_yaw_err = {self.total_yaw_err:.3f}")
-            self.get_logger().info(f"Temps de traitement : {self.delta_t:.5f}")
-
-    def compute_estimated_state(self):
-        
-        if self.dt is None:
-            self.dt = 0.04  # assume initial dt
-
-        if self.estimated_target_pose is None:
-            self.get_logger().info("No estimated target pose available")
-            return None
-        self.start_time = time.monotonic()
-        #Compute linear distances with target
-        delta_x = self.estimated_target_pose.x - self.drone_pose.x
-        delta_y = self.estimated_target_pose.y - self.drone_pose.y
-        delta_z = self.estimated_target_pose.z - self.drone_pose.z
-
-        #Compute distance with target
-        self.distance_from_target = math.hypot(delta_x,delta_y)
-        
-        # --- Filter radial speed command ---
-        self.initial_no_go_radius = 5.0  # start of soft zone
+    def safe_radius_correction(self):
+        self.initial_no_go_radius = self.soft_repulsion_initial_radius # start of soft zone
         r      = self.distance_from_target
         r_safe = self.minimal_margin          # hard keep-out
         r0     = self.initial_no_go_radius          # start of soft zone
@@ -692,11 +691,23 @@ class ApproachNode(Node):
         else:
             # Outside the soft zone or moving outward
             v_r = v_in
-            
 
-        if self.first: 
-            self.first = False
-            self.filter_vr_callback()
+        return v_r
+
+    def compute_estimated_state(self):
+        
+        self.start_time = time.monotonic()
+        #Compute linear distances with target
+        delta_x = self.estimated_center.x - self.drone_pose.x
+        delta_y = self.estimated_center.y - self.drone_pose.y
+        delta_z = self.estimated_center.z - self.drone_pose.z
+
+        #Compute distance with target
+        self.distance_from_target = math.hypot(delta_x,delta_y)
+        
+        # --- Filter radial speed command ---
+            
+        self.filter_vr_callback()
 
         # --- Unit vectors in polar frame ---
         self.unit_vector_to_target = delta_x / self.distance_from_target, delta_y / self.distance_from_target
@@ -712,15 +723,13 @@ class ApproachNode(Node):
 
         z_pos_hold_speed_command = self.z_pos_hold.compute(self.drone_pose.z, self.drone_speed.z, self.target_pose.v_z, self.dt)
         r_pos_hold_speed_command = self.r_pos_hold.compute(-self.distance_from_target, self.radial_speed_measured, self.target_pose.v_r, self.dt, deriv_pid_sign=-1)
-
         theta_pos_hold_speed_command = self.theta_pos_hold.compute(-angle, self.tangential_speed_measured/self.distance_from_target, self.target_pose.v_theta/self.distance_from_target, self.dt, deriv_pid_sign=-1)
 
-
+        v_r = self.safe_radius_correction()
         if self.target_pose.relative:
             if self.target_pose.v_theta**2/max(self.distance_from_target, 1e-6) > self.centripetal_limit:
                 self.target_pose.v_theta = math.copysign(math.sqrt(self.centripetal_limit * max(self.distance_from_target, 1e-6)), self.target_pose.v_theta)
         
-
             self.theta_speed_error = self.target_pose.v_theta + theta_pos_hold_speed_command - self.tangential_speed_measured
             self.r_speed_error = v_r + r_pos_hold_speed_command - self.radial_speed_measured
             self.z_speed_error = self.target_pose.v_z + z_pos_hold_speed_command - self.vertical_speed_measured
@@ -730,8 +739,6 @@ class ApproachNode(Node):
             self.theta_error = wrap_pi(math.atan2(-delta_y, -delta_x) - self.target_pose.theta)
             self.theta_distance_error = self.theta_error*self.distance_from_target
             self.z_error = delta_z + float(self.target_pose.z)
-
-            self.first = False #Reset the first flag to indicate no relative was going on
 
 
         # hdg_deg: 0 = North, +CW (aircraft heading)
@@ -752,11 +759,6 @@ class ApproachNode(Node):
         # clamp dt to kill spikes (and forbid negatives)
         self.dt = max(1e-3, min(self.dt, 0.10))
 
-        # Ensure defaults so absolute-mode paths don't crash (we primarily focus on relative mode)
-        a_r_des = 0.0
-        a_theta_des = 0.0
-        a_z_des = 0.0
-
         if self.target_pose.relative:
             #Computed required accelerations based on speed errors directly
             a_r_des = self.pid_r.compute(self.r_speed_error, self.dt)
@@ -767,26 +769,26 @@ class ApproachNode(Node):
             # Compute speeds based of absolute position error -> Speed -> Acceleration
             self.vel_r = self.pid_r_abs.compute(self.r_error, self.dt, -self.radial_speed_measured)
             self.vel_z = self.pid_z_abs.compute(self.z_error, self.dt, self.drone_speed.z)
-            self.v_theta = self.pid_theta.compute(self.theta_distance_error, self.dt, -self.tangential_speed_measured)
+            self.v_theta = self.pid_theta_abs.compute(self.theta_distance_error, self.dt, -self.tangential_speed_measured)
             
             a_r_des = self.pid_r.compute(self.vel_r - self.radial_speed_measured, self.dt)
             a_z_des = self.pid_z.compute(self.vel_z - self.drone_speed.z, self.dt)
             a_theta_des = self.pid_v_theta.compute(self.v_theta - self.tangential_speed_measured, self.dt)
         
 
-
-        centrepidal = self.tangential_speed_measured**2 / max(self.distance_from_target, 1e-6)
+        centripetal = self.tangential_speed_measured**2 / max(self.distance_from_target, 1e-6)
         coriolis = -self.tangential_speed_measured*self.radial_speed_measured / max(self.distance_from_target, 1e-6) if getattr(self, "distance_from_target", None) else 0.0
         
         #Centrepedial acceleration limit
-        self.a_r_cmd = a_r_des + centrepidal
+        self.a_r_cmd = a_r_des + centripetal
         self.a_theta_cmd = a_theta_des + coriolis
         self.a_z_cmd = a_z_des
         
+        acc_max = 3.0
         # Clamp commands to reasonable values
-        self.a_r_cmd = max(min(self.a_r_cmd, 3.0), -3.0)
-        self.a_theta_cmd = max(min(self.a_theta_cmd, 3.0), -3.0)
-        self.a_z_cmd = max(min(self.a_z_cmd, 3.0), -3.0)
+        self.a_r_cmd = max(min(self.a_r_cmd, acc_max), -acc_max)
+        self.a_theta_cmd = max(min(self.a_theta_cmd, acc_max), -acc_max)
+        self.a_z_cmd = max(min(self.a_z_cmd, acc_max), -acc_max)
 
         # Decompose velocities into x and y components
         self.acc_rx, self.acc_ry = self.a_r_cmd*self.unit_vector_to_target[0], self.a_r_cmd*self.unit_vector_to_target[1]
@@ -818,11 +820,10 @@ class ApproachNode(Node):
         
         self.yaw_rate += - self.yaw_feed_forward if self.tangential_speed_measured > 0 else self.yaw_feed_forward
 
-
         self.send_commands()
 
     def send_commands(self):  
-        if self.estimated_target_pose is None or self.target_pose is None:
+        if self.estimated_center is None or self.target_pose is None:
             return None
         # Create PositionTarget message for setpoint_raw  
         target = PositionTarget()  
@@ -999,9 +1000,10 @@ class ApproachNode(Node):
     def goal_pose_callback(self, msg):
         self.target_pose = msg
         self.target_pose.theta = (-msg.theta+90)/180*np.pi
+        
 
-    def estimation_callback(self, msg):
-        self.estimated_target_pose = msg.pose.position
+    def estimated_center_callback(self, msg):
+        self.estimated_center = msg.pose.position
 
     def publish_zero(self):
         # One last zero-velocity setpoint
@@ -1023,10 +1025,10 @@ class ApproachNode(Node):
         target.velocity.z = 0.0
 
         # Keep yaw stable if we can compute it; otherwise ignore yaw entirely.
-        if self.estimated_target_pose is not None and self.drone_pose is not None:
+        if self.estimated_center is not None and self.drone_pose is not None:
             target.yaw = np.arctan2(
-                self.estimated_target_pose.y - self.drone_pose.y,
-                self.estimated_target_pose.x - self.drone_pose.x
+                self.estimated_center.y - self.drone_pose.y,
+                self.estimated_center.x - self.drone_pose.x
             )
         else:
             target.type_mask |= PositionTarget.IGNORE_YAW_RATE

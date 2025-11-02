@@ -8,7 +8,7 @@ from builtin_interfaces.msg import Time
 class OneShotFakeTarget(Node):
     def __init__(self, delay_sec: float = 5.0):
         super().__init__('one_shot_fake_target')
-        self.pub = self.create_publisher(PoseStamped, '/estimated_target_location', 10)
+        self.pub = self.create_publisher(PoseStamped, '/estimated_center_location', 10)
         # fire once after delay_sec
         self.create_timer(delay_sec, self._fire_once)
 
@@ -24,7 +24,7 @@ class OneShotFakeTarget(Node):
         msg.pose.orientation.w = 1.0
 
         self.pub.publish(msg)
-        self.get_logger().info('Published one PoseStamped to /estimated_target_location')
+        self.get_logger().info('Published one PoseStamped to /estimated_center_location')
         # exit cleanly
         rclpy.shutdown()
 

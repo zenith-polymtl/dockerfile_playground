@@ -61,9 +61,9 @@ class TargetPoseKeyboard(Node):
             self.v_z = 0.0
             self.yaw_rate = 0.0
         elif k == 'w':
-            self.r -= self.step
-        elif k == 's':
             self.r += self.step
+        elif k == 's':
+            self.r -= self.step
         elif k == 'd':
             self.v_theta -= self.step
         elif k == 'a':
