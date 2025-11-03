@@ -449,6 +449,7 @@ class ApproachNode(Node):
 
         # Rates / filters / limits
         self.alpha             = float(gp("alpha").value)
+        self.alpha = None if self.alpha <= 0.0 else self.alpha
         self.centripetal_limit = float(gp("centripetal_limit").value)
         self.minimal_margin = float(gp("minimal_margin").value)
         self.soft_repulsion_initial_radius = float(gp("soft_repulsion_initial_radius").value)
@@ -673,7 +674,7 @@ class ApproachNode(Node):
         self.a_theta_cmd = a_theta_des + coriolis
         self.a_z_cmd = a_z_des
         
-        acc_max = 3.0
+        acc_max = 6.0
         # Clamp commands to reasonable values
         self.a_r_cmd = max(min(self.a_r_cmd, acc_max), -acc_max)
         self.a_theta_cmd = max(min(self.a_theta_cmd, acc_max), -acc_max)
@@ -757,13 +758,13 @@ class ApproachNode(Node):
         if self.target_pose is None:
             return 
         
-        if self.filtered_v_r is not None:
+        if self.alpha is not None:
             max_rate = self.alpha   # m/s per iteration
             delta = self.target_pose.v_r - self.filtered_v_r
             delta = np.clip(delta, -max_rate, max_rate)
             self.filtered_v_r += delta
         else:
-            self.filtered_v_r = 0
+            self.filtered_v_r = self.target_pose.v_r
 
 
     def log_callback(self):
