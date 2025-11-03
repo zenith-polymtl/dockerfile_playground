@@ -329,49 +329,57 @@ class ApproachNode(Node):
         # --- Controllers (gains/limits from params) ---
         self.pid_r = PIDController(
             kp=self.pid_r_kp, ki=self.pid_r_ki, kd=self.pid_r_kd,
-            max_i=self.pid_r_max_i, deriv_tau=0.0,  max_output=self.pid_r_max_out
+            max_i=self.pid_r_max_i, deriv_tau=self.pid_r_deriv_tau, max_output=self.pid_r_max_out,
+            d_clip=self.pid_r_d_clip if getattr(self, "pid_r_d_clip", 0.0) > 0.0 else None
         )
-        self.pid_z_hold= PIDController(
-            kp=self.pid_z_hold_kp, ki=self.pid_z_hold_ki, kd=self.pid_z_hold_kd,
-            max_i=self.pid_z_hold_max_i, max_output=self.pid_z_hold_max_out,
-            deriv_tau=self.pid_z_hold_deriv_tau, d_clip=getattr(self, "pid_z_hold_d_clip", None)
-        )
-        self.pid_theta_hold= PIDController(
-            kp=self.pid_theta_hold_kp, ki=self.pid_theta_hold_ki, kd=self.pid_theta_hold_kd,
-            max_i=self.pid_theta_hold_max_i, max_output=self.pid_theta_hold_max_out,
-            deriv_tau=self.pid_theta_hold_deriv_tau, d_clip=getattr(self, "pid_theta_hold_d_clip", None)
+        self.pid_r_abs = PIDController(
+            kp=self.pid_r_abs_kp, ki=self.pid_r_abs_ki, kd=self.pid_r_abs_kd,
+            max_i=self.pid_r_abs_max_i, deriv_tau=self.pid_r_abs_deriv_tau, max_output=self.pid_r_abs_max_out,
+            d_clip=self.pid_r_abs_d_clip if getattr(self, "pid_r_abs_d_clip", 0.0) > 0.0 else None
         )
         self.pid_r_hold = PIDController(
             kp=self.pid_r_hold_kp, ki=self.pid_r_hold_ki, kd=self.pid_r_hold_kd,
-            max_i=self.pid_r_hold_max_i, max_output=self.pid_r_hold_max_out,
-            deriv_tau=self.pid_r_hold_deriv_tau, d_clip=getattr(self, "pid_r_hold_d_clip", None)
+            max_i=self.pid_r_hold_max_i, deriv_tau=self.pid_r_hold_deriv_tau, max_output=self.pid_r_hold_max_out,
+            d_clip=self.pid_r_hold_d_clip if getattr(self, "pid_r_hold_d_clip", 0.0) > 0.0 else None
         )
-        self.pid_r_abs = PIDController(
-            kp=self.pid_rabs_kp, ki=self.pid_rabs_ki, kd=self.pid_rabs_kd,
-            max_i=self.pid_rabs_max_i, max_output=self.pid_rabs_max_out
-        )
+
         self.pid_theta_abs = PIDController(
             kp=self.pid_theta_abs_kp, ki=self.pid_theta_abs_ki, kd=self.pid_theta_abs_kd,
-            max_i=self.pid_theta_abs_max_i, max_output=self.pid_theta_abs_max_out, deriv_tau=0.075, d_clip=0.8
+            max_i=self.pid_theta_abs_max_i, deriv_tau=self.pid_theta_abs_deriv_tau, max_output=self.pid_theta_abs_max_out,
+            d_clip=self.pid_theta_abs_d_clip if getattr(self, "pid_theta_abs_d_clip", 0.0) > 0.0 else None
         )
-        self.pid_z = PIDController(
-            kp=self.pid_z_kp, ki=self.pid_z_ki, kd=self.pid_z_kd,
-            max_i=self.pid_z_max_i, max_output=self.pid_z_max_out, deriv_tau=0.075, d_clip=0.8
+        self.pid_theta_hold = PIDController(
+            kp=self.pid_theta_hold_kp, ki=self.pid_theta_hold_ki, kd=self.pid_theta_hold_kd,
+            max_i=self.pid_theta_hold_max_i, deriv_tau=self.pid_theta_hold_deriv_tau, max_output=self.pid_theta_hold_max_out,
+            d_clip=self.pid_theta_hold_d_clip if getattr(self, "pid_theta_hold_d_clip", 0.0) > 0.0 else None
         )
-        self.pid_yaw = PIDController(
-            kp=self.pid_yaw_kp, ki=self.pid_yaw_ki, kd=self.pid_yaw_kd,
-            max_i=self.pid_yaw_max_i, max_output=self.pid_yaw_max_out
-        )
+
         self.pid_v_theta = PIDController(
             kp=self.pid_v_theta_kp, ki=self.pid_v_theta_ki, kd=self.pid_v_theta_kd,
-            max_i=self.pid_v_theta_max_i, max_output=self.pid_v_theta_max_out,
-            deriv_tau=self.pid_v_theta_deriv_tau, d_clip=self.pid_v_theta_d_clip
+            max_i=self.pid_v_theta_max_i, deriv_tau=self.pid_v_theta_deriv_tau, max_output=self.pid_v_theta_max_out,
+            d_clip=self.pid_v_theta_d_clip if getattr(self, "pid_v_theta_d_clip", 0.0) > 0.0 else None
         )
-        
+
+        self.pid_z = PIDController(
+            kp=self.pid_z_kp, ki=self.pid_z_ki, kd=self.pid_z_kd,
+            max_i=self.pid_z_max_i, deriv_tau=self.pid_z_deriv_tau, max_output=self.pid_z_max_out,
+            d_clip=self.pid_z_d_clip if getattr(self, "pid_z_d_clip", 0.0) > 0.0 else None
+        )
         self.pid_z_abs = PIDController(
             kp=self.pid_z_abs_kp, ki=self.pid_z_abs_ki, kd=self.pid_z_abs_kd,
-            max_i=self.pid_z_abs_max_i, max_output=self.pid_z_abs_max_out,
-            deriv_tau=self.pid_z_abs_deriv_tau, d_clip=self.pid_z_abs_d_clip
+            max_i=self.pid_z_abs_max_i, deriv_tau=self.pid_z_abs_deriv_tau, max_output=self.pid_z_abs_max_out,
+            d_clip=self.pid_z_abs_d_clip if getattr(self, "pid_z_abs_d_clip", 0.0) > 0.0 else None
+        )
+        self.pid_z_hold = PIDController(
+            kp=self.pid_z_hold_kp, ki=self.pid_z_hold_ki, kd=self.pid_z_hold_kd,
+            max_i=self.pid_z_hold_max_i, deriv_tau=self.pid_z_hold_deriv_tau, max_output=self.pid_z_hold_max_out,
+            d_clip=self.pid_z_hold_d_clip if getattr(self, "pid_z_hold_d_clip", 0.0) > 0.0 else None
+        )
+
+        self.pid_yaw = PIDController(
+            kp=self.pid_yaw_kp, ki=self.pid_yaw_ki, kd=self.pid_yaw_kd,
+            max_i=self.pid_yaw_max_i, deriv_tau=self.pid_yaw_deriv_tau, max_output=self.pid_yaw_max_out,
+            d_clip=self.pid_yaw_d_clip if getattr(self, "pid_yaw_d_clip", 0.0) > 0.0 else None
         )
 
     def _declare_params(self):
@@ -381,111 +389,50 @@ class ApproachNode(Node):
         self.declare_parameter("topic_goal_polar", "/goal_pose_polar")
         self.declare_parameter("topic_estimated_center", "/estimated_center_location")
         self.declare_parameter("topic_activation", "/approach_activation")
-        self.declare_parameter("topic_ctrl_activation", "/controller_activation")  # ananas
+        self.declare_parameter("topic_ctrl_activation", "/controller_activation")
         self.declare_parameter("topic_raw_setpoint", "/mavros/setpoint_raw/local")
         self.declare_parameter("frame_id", "map")
 
         # Rates / filters
-        self.declare_parameter("alpha", 0.1)          # smoothing for v_r
+        self.declare_parameter("alpha", 0.1)
 
         # Limits
-        self.declare_parameter("centripetal_limit", 1.5)  # [m/s^2]
+        self.declare_parameter("centripetal_limit", 1.5)
         self.declare_parameter("minimal_margin", 2.0)
         self.declare_parameter("soft_repulsion_initial_radius", 5.0)
 
         # CSV log
         self.declare_parameter("csv_path", "approach_log_polar.csv")
 
-        #MAVLink config
-
+        # MAVLink config
         self.declare_parameter("set_msg_interval", True)
-        self.declare_parameter("msg_interval_rate", 25.0)   # Hz
+        self.declare_parameter("msg_interval_rate", 25.0)
 
-        # PID params (flat for simplicity)
-        # r (relative mode stabilizer)
-        self.declare_parameter("pid_r_kp", 3.75)
-        self.declare_parameter("pid_r_ki", 1.0)
-        self.declare_parameter("pid_r_kd", 0.0)
-        self.declare_parameter("pid_r_max_i", 1.0)
-        self.declare_parameter("pid_r_max_out", 7.0)
-
-        # r_abs (absolute radius controller)
-        self.declare_parameter("pid_rabs_kp", 0.3)
-        self.declare_parameter("pid_rabs_ki", 0.1)
-        self.declare_parameter("pid_rabs_kd", 0.15)
-        self.declare_parameter("pid_rabs_max_i", 0.5)
-        self.declare_parameter("pid_rabs_max_out", 2.0)
-
-        # theta (angle * radius controller)
-        self.declare_parameter("pid_theta_abs_kp", 1.0)
-        self.declare_parameter("pid_theta_abs_ki", 0.0)
-        self.declare_parameter("pid_theta_abs_kd", 0.6)
-        self.declare_parameter("pid_theta_abs_max_i", 1.0)
-        self.declare_parameter("pid_theta_abs_max_out", 2.0)
-
-        # z
-        self.declare_parameter("pid_z_kp", 0.6)
-        self.declare_parameter("pid_z_ki", 0.0)
-        self.declare_parameter("pid_z_kd", 0.3)
-        self.declare_parameter("pid_z_max_i", 1.0)
-        self.declare_parameter("pid_z_max_out", 3.0)
-
-        # yaw
-        self.declare_parameter("pid_yaw_kp", 3.0)
-        self.declare_parameter("pid_yaw_ki", 1.0)
-        self.declare_parameter("pid_yaw_kd", 0.3)
-        self.declare_parameter("pid_yaw_max_i", 0.5)
-        self.declare_parameter("pid_yaw_max_out", 6.0)
-
-        # pid_v_theta (velocity around theta controller)
-        self.declare_parameter("pid_v_theta_kp", 2.5)
-        self.declare_parameter("pid_v_theta_ki", 1.0)
-        self.declare_parameter("pid_v_theta_kd", 0.0)
-        self.declare_parameter("pid_v_theta_max_i", 0.2)
-        self.declare_parameter("pid_v_theta_max_out", 2.25)
-        self.declare_parameter("pid_v_theta_deriv_tau", 0.0)
-        self.declare_parameter("pid_v_theta_d_clip", 0.3)
-
-        # extra bool (fixed typo)
+        # extra bools
         self.declare_parameter("talk", True)
         self.declare_parameter("log", True)
 
-        # --- Newly added / unified hold and z_abs PID params ---
-        # z_hold
-        self.declare_parameter("pid_z_hold_kp", 0.3)
-        self.declare_parameter("pid_z_hold_ki", 0.1)
-        self.declare_parameter("pid_z_hold_kd", 0.15)
-        self.declare_parameter("pid_z_hold_max_i", 0.5)
-        self.declare_parameter("pid_z_hold_max_out", 3.0)
-        self.declare_parameter("pid_z_hold_deriv_tau", 0.1)
-        self.declare_parameter("pid_z_hold_d_clip", 0.3)
-
-        # theta_hold
-        self.declare_parameter("pid_theta_hold_kp", 0.6)
-        self.declare_parameter("pid_theta_hold_ki", 0.2)
-        self.declare_parameter("pid_theta_hold_kd", 0.3)
-        self.declare_parameter("pid_theta_hold_max_i", 0.5)
-        self.declare_parameter("pid_theta_hold_max_out", 3.0)
-        self.declare_parameter("pid_theta_hold_deriv_tau", 0.1)
-        self.declare_parameter("pid_theta_hold_d_clip", 0.3)
-
-        # r_hold
-        self.declare_parameter("pid_r_hold_kp", 0.3)
-        self.declare_parameter("pid_r_hold_ki", 0.1)
-        self.declare_parameter("pid_r_hold_kd", 0.15)
-        self.declare_parameter("pid_r_hold_max_i", 0.5)
-        self.declare_parameter("pid_r_hold_max_out", 3.0)
-        self.declare_parameter("pid_r_hold_deriv_tau", 0.1)
-        self.declare_parameter("pid_r_hold_d_clip", 0.3)
-
-        # z_abs (previously hardcoded)
-        self.declare_parameter("pid_z_abs_kp", 0.3)
-        self.declare_parameter("pid_z_abs_ki", 0.1)
-        self.declare_parameter("pid_z_abs_kd", 0.15)
-        self.declare_parameter("pid_z_abs_max_i", 0.5)
-        self.declare_parameter("pid_z_abs_max_out", 3.0)
-        self.declare_parameter("pid_z_abs_deriv_tau", 0.1)
-        self.declare_parameter("pid_z_abs_d_clip", 0.3)
+        # --- Unified PID params for all controllers (kp, ki, kd, max_i, max_out, deriv_tau, d_clip) ---
+        for pname, defaults in [
+            ("pid_r",       (3.75, 1.0, 0.0, 1.0, 7.0, 0.0, 0.0)),
+            ("pid_r_abs",   (0.2,  0.1, 0.1, 0.3, 2.0, 0.1, 0.0)),
+            ("pid_r_hold",  (0.3,  0.1, 0.15,0.5, 3.0, 0.1, 0.0)),
+            ("pid_theta_abs",(0.3, 0.1, 0.15,0.5, 3.0, 0.1, 0.0)),
+            ("pid_theta_hold",(0.6,0.2, 0.3, 0.5, 3.0, 0.1, 0.0)),
+            ("pid_v_theta", (2.5,  1.0, 0.0, 0.2, 2.25, 0.0, 0.3)),
+            ("pid_z",       (0.6,  0.0, 0.3, 1.0, 3.0, 0.075, 0.0)),
+            ("pid_z_abs",   (0.3,  0.0, 0.25,0.5, 3.0, 0.1, 0.8)),
+            ("pid_z_hold",  (0.3,  0.1, 0.15,0.5, 3.0, 0.1, 0.0)),
+            ("pid_yaw",     (2.0,  1.0, 0.3, 0.5, 6.0, 0.0, 0.0)),
+        ]:
+            kp, ki, kd, max_i, max_out, deriv_tau, d_clip = defaults
+            self.declare_parameter(f"{pname}_kp", kp)
+            self.declare_parameter(f"{pname}_ki", ki)
+            self.declare_parameter(f"{pname}_kd", kd)
+            self.declare_parameter(f"{pname}_max_i", max_i)
+            self.declare_parameter(f"{pname}_max_out", max_out)
+            self.declare_parameter(f"{pname}_deriv_tau", deriv_tau)
+            self.declare_parameter(f"{pname}_d_clip", d_clip)
 
         # ---------- variable attribution (cache values) ----------
         gp = self.get_parameter  # short alias
@@ -511,77 +458,16 @@ class ApproachNode(Node):
         self.set_msg_interval = bool(gp("set_msg_interval").value)
         self.msg_interval_rate= float(gp("msg_interval_rate").value)
 
-        # PIDs
-        self.pid_r_kp        = float(gp("pid_r_kp").value)
-        self.pid_r_ki        = float(gp("pid_r_ki").value)
-        self.pid_r_kd        = float(gp("pid_r_kd").value)
-        self.pid_r_max_i     = float(gp("pid_r_max_i").value)
-        self.pid_r_max_out   = float(gp("pid_r_max_out").value)
-
-        self.pid_rabs_kp     = float(gp("pid_rabs_kp").value)
-        self.pid_rabs_ki     = float(gp("pid_rabs_ki").value)
-        self.pid_rabs_kd     = float(gp("pid_rabs_kd").value)
-        self.pid_rabs_max_i  = float(gp("pid_rabs_max_i").value)
-        self.pid_rabs_max_out= float(gp("pid_rabs_max_out").value)
-
-        self.pid_theta_abs_kp    = float(gp("pid_theta_abs_kp").value)
-        self.pid_theta_abs_ki    = float(gp("pid_theta_abs_ki").value)
-        self.pid_theta_abs_kd    = float(gp("pid_theta_abs_kd").value)
-        self.pid_theta_abs_max_i = float(gp("pid_theta_abs_max_i").value)
-        self.pid_theta_abs_max_out = float(gp("pid_theta_abs_max_out").value)
-
-        self.pid_z_kp        = float(gp("pid_z_kp").value)
-        self.pid_z_ki        = float(gp("pid_z_ki").value)
-        self.pid_z_kd        = float(gp("pid_z_kd").value)
-        self.pid_z_max_i     = float(gp("pid_z_max_i").value)
-        self.pid_z_max_out   = float(gp("pid_z_max_out").value)
-
-        self.pid_yaw_kp      = float(gp("pid_yaw_kp").value)
-        self.pid_yaw_ki      = float(gp("pid_yaw_ki").value)
-        self.pid_yaw_kd      = float(gp("pid_yaw_kd").value)
-        self.pid_yaw_max_i   = float(gp("pid_yaw_max_i").value)
-        self.pid_yaw_max_out = float(gp("pid_yaw_max_out").value)
-
-        # pid_v_theta params
-        self.pid_v_theta_kp = float(gp("pid_v_theta_kp").value)
-        self.pid_v_theta_ki = float(gp("pid_v_theta_ki").value)
-        self.pid_v_theta_kd = float(gp("pid_v_theta_kd").value)
-        self.pid_v_theta_max_i = float(gp("pid_v_theta_max_i").value)
-        self.pid_v_theta_max_out = float(gp("pid_v_theta_max_out").value)
-        self.pid_v_theta_deriv_tau = float(gp("pid_v_theta_deriv_tau").value)
-        self.pid_v_theta_d_clip = float(gp("pid_v_theta_d_clip").value)
-
-        self.pid_z_hold_kp = float(gp("pid_z_hold_kp").value)
-        self.pid_z_hold_ki = float(gp("pid_z_hold_ki").value)
-        self.pid_z_hold_kd = float(gp("pid_z_hold_kd").value)
-        self.pid_z_hold_max_i = float(gp("pid_z_hold_max_i").value)
-        self.pid_z_hold_max_out = float(gp("pid_z_hold_max_out").value)
-        self.pid_z_hold_deriv_tau = float(gp("pid_z_hold_deriv_tau").value)
-        self.pid_z_hold_d_clip = float(gp("pid_z_hold_d_clip").value)
-
-        self.pid_theta_hold_kp = float(gp("pid_theta_hold_kp").value)
-        self.pid_theta_hold_ki = float(gp("pid_theta_hold_ki").value)
-        self.pid_theta_hold_kd = float(gp("pid_theta_hold_kd").value)
-        self.pid_theta_hold_max_i = float(gp("pid_theta_hold_max_i").value)
-        self.pid_theta_hold_max_out = float(gp("pid_theta_hold_max_out").value)
-        self.pid_theta_hold_deriv_tau = float(gp("pid_theta_hold_deriv_tau").value)
-        self.pid_theta_hold_d_clip = float(gp("pid_theta_hold_d_clip").value)
-
-        self.pid_r_hold_kp = float(gp("pid_r_hold_kp").value)
-        self.pid_r_hold_ki = float(gp("pid_r_hold_ki").value)
-        self.pid_r_hold_kd = float(gp("pid_r_hold_kd").value)
-        self.pid_r_hold_max_i = float(gp("pid_r_hold_max_i").value)
-        self.pid_r_hold_max_out = float(gp("pid_r_hold_max_out").value)
-        self.pid_r_hold_deriv_tau = float(gp("pid_r_hold_deriv_tau").value)
-        self.pid_r_hold_d_clip = float(gp("pid_r_hold_d_clip").value)
-
-        self.pid_z_abs_kp = float(gp("pid_z_abs_kp").value)
-        self.pid_z_abs_ki = float(gp("pid_z_abs_ki").value)
-        self.pid_z_abs_kd = float(gp("pid_z_abs_kd").value)
-        self.pid_z_abs_max_i = float(gp("pid_z_abs_max_i").value)
-        self.pid_z_abs_max_out = float(gp("pid_z_abs_max_out").value)
-        self.pid_z_abs_deriv_tau = float(gp("pid_z_abs_deriv_tau").value)
-        self.pid_z_abs_d_clip = float(gp("pid_z_abs_d_clip").value)
+        # cache all unified PID params
+        for pname in ["pid_r","pid_r_abs","pid_r_hold","pid_theta_abs","pid_theta_hold",
+                      "pid_v_theta","pid_z","pid_z_abs","pid_z_hold","pid_yaw"]:
+            setattr(self, f"{pname}_kp", float(gp(f"{pname}_kp").value))
+            setattr(self, f"{pname}_ki", float(gp(f"{pname}_ki").value))
+            setattr(self, f"{pname}_kd", float(gp(f"{pname}_kd").value))
+            setattr(self, f"{pname}_max_i", float(gp(f"{pname}_max_i").value))
+            setattr(self, f"{pname}_max_out", float(gp(f"{pname}_max_out").value))
+            setattr(self, f"{pname}_deriv_tau", float(gp(f"{pname}_deriv_tau").value))
+            setattr(self, f"{pname}_d_clip", float(gp(f"{pname}_d_clip").value))
 
         self.talk            = bool(gp("talk").value)
         self.log             = bool(gp("log").value)
@@ -679,6 +565,8 @@ class ApproachNode(Node):
 
         elif (r < r0):
             if (v_in > 0.0):
+                if v_in > (r0 - r_safe):
+                    v_in = (r - r_safe)  # cap max inward speed to not overshoot soft zone
                 # In the soft zone: scale inward velocity smoothly toward 0
                 denom = max(r0 - r_safe, 1e-6)
                 alpha = (r - r_safe) / denom      # in (0,1)
@@ -687,7 +575,7 @@ class ApproachNode(Node):
             else:
                 # In the soft zone but moving outward
                 v_r = v_in
-                v_r += self.dt*0.5*v_r
+                v_r += self.dt*0.5*v_r #Damping outward speed in soft zone
         else:
             # Outside the soft zone or moving outward
             v_r = v_in
@@ -697,6 +585,7 @@ class ApproachNode(Node):
     def compute_estimated_state(self):
         
         self.start_time = time.monotonic()
+        #time.sleep(0.01)  # simulate small processing delay if needed
         #Compute linear distances with target
         delta_x = self.estimated_center.x - self.drone_pose.x
         delta_y = self.estimated_center.y - self.drone_pose.y
