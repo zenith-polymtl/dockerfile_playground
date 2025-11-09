@@ -38,7 +38,7 @@ setup(
             'approach_raw = mission.approach_node_raw:main',
             'vision = mission.machine_vision:main',
             'water = mission.water_measure:main',
-            'camera = mission.cam_pub:main',
+            'camera = mission.cam2:main',
             'graph = mission.graph_node:main',
             'abort = mission.abort_brake_node:main',
             'targets = mission.target_publisher_node:main',
