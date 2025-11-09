@@ -14,10 +14,6 @@ setup(
     package_data={
         package_name: [
             'web_manual_control_node.py',
-            'control_interface/*.html',
-            'control_interface/static/*',
-            'control_interface/templates/*',
-            'control_interface/control_config.json'
         ],
     },
     data_files=[
