@@ -224,10 +224,6 @@ RUN apt-get update && apt-get install -y \
 # If this fails, we'll continue with the build anyway
 RUN ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && rosdep install -y --from-paths src --ignore-src --rosdistro humble --skip-keys libcamera || true"]
 
-# Install picamera2
-RUN apt-get update && apt-get install -y libcap-dev && rm -rf /var/lib/apt/lists/*
-RUN python3 -m pip install picamera2
-
 # Build the workspace using bash explicitly
 RUN ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && colcon build --event-handlers=console_direct+"]
 
