@@ -24,6 +24,9 @@ services:
         ros2 launch mavros apm.launch fcu_url:=tcp://127.0.0.1:5763 &
         tail -f /dev/null
       "
+    devices:
+      - /dev/video0:/dev/video0       
+      - /dev/vchiq:/dev/vchiq
     environment:
       - ROS_DOMAIN_ID=1
       - DISPLAY=${DISPLAY}
