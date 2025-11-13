@@ -21,7 +21,7 @@ services:
         colcon build&&
         ros2 daemon start &&
         source install/setup.bash &&
-        ros2 launch mavros apm.launch fcu_url:=tcp://127.0.0.1:5763 &
+        ros2 launch mavros apm.launch fcu_url:=serial:///dev/serial0:921600   &
         tail -f /dev/null
       "
     devices:
