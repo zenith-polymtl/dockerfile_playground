@@ -105,7 +105,7 @@ class RCChannelReader(Node):
 
     def publish_target(self):
         msg = TargetPosePolar()
-        msg.v_r = -self.v_r_max * self.pitch
+        msg.v_r = self.v_r_max * self.pitch
         msg.v_theta = -self.v_theta_max * self.roll
         msg.v_z = self.v_z_max * self.throttle
         msg.yaw_rate = self.yaw_max*self.yaw

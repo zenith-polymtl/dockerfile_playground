@@ -68,9 +68,9 @@ def generate_launch_description():
             executable="controller_interface",
             name="controller_interface",
             parameters=[{
-                'v_r_max': 1.0,
-                'v_theta_max': 1.5,
-                'v_z_max': 0.5,
+                'v_r_max': 2.0,
+                'v_theta_max': 2.5,
+                'v_z_max': 1.0,
                 'talk' : False,
             }]
         )
