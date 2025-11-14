@@ -59,7 +59,7 @@ Pour ouvrir une session bash interactive dans le conteneur en cours d'exécution
 docker exec -it dockerfile_playground-zenith-1 bash
 ```
 
-ros2 bag record \goal_pose_polar -o t1.db3
+ros2 bag record /goal_pose_polar /controller_activation -o t1.db3
 
 ## 4. Commandes Utiles
 
