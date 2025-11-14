@@ -31,7 +31,7 @@ class RCChannelReader(Node):
         # Set up message intervals after a short delay  
         self.setup_timer = self.create_timer(1.0, self.setup_message_intervals)  
 
-        self.declare_parameter('v_r_max', 1.0) 
+        self.declare_parameter('v_r_max', 1.5) 
         self.declare_parameter('v_theta_max', 2.0) 
         self.declare_parameter('v_z_max', 0.5)  
         self.declare_parameter('yaw_max', 3.14159/4)     # float
