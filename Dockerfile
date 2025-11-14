@@ -204,17 +204,6 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /ros2_ws
 COPY ros2_ws/src ./src
 
-# Clone and build the camera_ros node
-RUN mkdir -p /ros2_ws/src \
-    && cd /ros2_ws/src \
-    && git clone https://github.com/christianrauch/camera_ros.git
-
-# Install additional dependencies for camera_ros
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-humble-camera-info-manager \
-    ros-humble-cv-bridge \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install tf_transformations for ROS 2  
 RUN apt-get update && apt-get install -y \  
     ros-${ROS_DISTRO}-tf-transformations \  
