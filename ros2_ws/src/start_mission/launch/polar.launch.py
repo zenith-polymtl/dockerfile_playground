@@ -59,7 +59,7 @@ def generate_launch_description():
                 # pid_z_hold
                 'pid_z_hold_kp': 0.3, 'pid_z_hold_ki': 0.1, 'pid_z_hold_kd': 0.15, 'pid_z_hold_max_i': 0.5, 'pid_z_hold_max_out': 3.0, 'pid_z_hold_deriv_tau': 0.1, 'pid_z_hold_d_clip': 0.0,
                 # pid_yaw
-                'pid_yaw_kp': 1.5, 'pid_yaw_ki': 1.0, 'pid_yaw_kd': 0.24, 'pid_yaw_max_i': 0.4, 'pid_yaw_max_out': 6.0, 'pid_yaw_deriv_tau': 0.0, 'pid_yaw_d_clip': 0.05,
+                'pid_yaw_kp': 1.0, 'pid_yaw_ki': 1.0, 'pid_yaw_kd': 0.24, 'pid_yaw_max_i': 1.2, 'pid_yaw_max_out': 15.0, 'pid_yaw_deriv_tau': 0.0, 'pid_yaw_d_clip': 0.05,
             }]
         )
     
